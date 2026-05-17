@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #1e293b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --border: #334155;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.card {
+  @apply bg-slate-800 rounded-xl border border-slate-700 p-6;
+}
+
+.btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-lg font-medium transition-colors;
+}
+
+.btn-danger {
+  @apply bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors;
+}
+
+.btn-success {
+  @apply bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium transition-colors;
+}
+
+.input-field {
+  @apply w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+.select-field {
+  @apply w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+.label {
+  @apply block text-sm font-medium text-slate-300 mb-1;
+}
+
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-kritisch { @apply bg-red-900/50 text-red-300 border border-red-700; }
+.badge-hoch { @apply bg-orange-900/50 text-orange-300 border border-orange-700; }
+.badge-mittel { @apply bg-yellow-900/50 text-yellow-300 border border-yellow-700; }
+.badge-niedrig { @apply bg-green-900/50 text-green-300 border border-green-700; }
+
+.badge-offen { @apply bg-red-900/50 text-red-300 border border-red-700; }
+.badge-prüfung { @apply bg-blue-900/50 text-blue-300 border border-blue-700; }
+.badge-workaround { @apply bg-yellow-900/50 text-yellow-300 border border-yellow-700; }
+.badge-gelöst { @apply bg-green-900/50 text-green-300 border border-green-700; }
