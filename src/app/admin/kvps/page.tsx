@@ -24,6 +24,8 @@ export default function KvpAdminPage() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [tokenRevealId, setTokenRevealId] = useState<number | null>(null);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
 
   useEffect(() => { if (!authLoading && !admin) window.location.href = '/'; }, [admin, authLoading]);
 
@@ -123,6 +125,29 @@ export default function KvpAdminPage() {
     load();
   };
 
+  const regenerateToken = async (k: KVP) => {
+    const verb = k.access_token ? 'neu generieren' : 'erstellen';
+    if (!confirm(`Zugangstoken für "${k.short_name}" ${verb}?${k.access_token ? ' Der bisherige Token wird ungültig.' : ''}`)) return;
+    const res = await fetch(`/api/kvps/${k.id}/token`, { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || 'Fehler beim Generieren');
+      return;
+    }
+    load();
+  };
+
+  const copyToken = async (k: KVP) => {
+    if (!k.access_token) return;
+    try {
+      await navigator.clipboard.writeText(k.access_token);
+      setCopiedId(k.id);
+      setTimeout(() => setCopiedId(c => (c === k.id ? null : c)), 1500);
+    } catch {
+      // ignore
+    }
+  };
+
   // Quick-Toggle Produkt direkt aus der Liste
   const toggleProduct = async (k: KVP, product: string) => {
     const current = Array.isArray(k.products) ? k.products : [];
@@ -144,19 +169,22 @@ export default function KvpAdminPage() {
 
   const renderRow = (k: KVP) => {
     const products = Array.isArray(k.products) ? k.products : [];
+    const tokenOpen = tokenRevealId === k.id;
     return (
-      <div key={k.id} className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between gap-4 hover:border-gray-300 transition-colors">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-hanse-navy">{k.short_name}</span>
-            <span className="text-gray-400 text-sm">{k.name}</span>
-            {k.region && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">{k.region}</span>}
+      <div key={k.id} className="bg-white border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
+        <div className="px-4 py-2.5 flex items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-medium text-hanse-navy">{k.short_name}</span>
+              <span className="text-gray-400 text-sm truncate">{k.name}</span>
+              {k.region && <span className="text-xs text-gray-400">· {k.region}</span>}
+            </div>
+            <div className="text-xs text-gray-500 mt-0.5 truncate">
+              {k.contact_email}
+              {k.contact_name && <span className="text-gray-400"> · {k.contact_name}</span>}
+            </div>
           </div>
-          <div className="text-sm text-gray-500 mt-1 truncate">
-            {k.contact_email}
-            {k.contact_name && <span className="text-gray-400"> · {k.contact_name}</span>}
-          </div>
-          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+          <div className="hidden md:flex items-center gap-1 flex-shrink-0">
             {PRODUCTS.map(p => {
               const active = products.includes(p);
               return (
@@ -166,7 +194,7 @@ export default function KvpAdminPage() {
                   className={`text-xs px-2 py-0.5 rounded border transition-colors ${
                     active
                       ? 'border-init-green bg-init-green/10 text-init-green font-medium'
-                      : 'border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300'
+                      : 'border-gray-200 text-gray-300 hover:text-gray-500'
                   }`}
                   title={`Produkt ${p} ${active ? 'entfernen' : 'zuweisen'}`}
                 >
@@ -175,74 +203,97 @@ export default function KvpAdminPage() {
               );
             })}
           </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={() => setTokenRevealId(tokenOpen ? null : k.id)}
+              className={`text-sm px-2 py-1 transition-colors ${
+                tokenOpen ? 'text-init-green' : 'text-gray-500 hover:text-hanse-navy'
+              }`}
+              title="Kunden-Zugangstoken"
+            >
+              Token
+            </button>
+            <button onClick={() => startEdit(k)} className="text-sm text-gray-500 hover:text-hanse-navy px-2 py-1">Bearbeiten</button>
+            <button
+              onClick={() => remove(k)}
+              className="text-sm text-gray-400 hover:text-red-600 px-2 py-1 transition-colors"
+              title="Löschen"
+            >
+              ✕
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button onClick={() => startEdit(k)} className="btn-secondary text-sm">Bearbeiten</button>
-          <button
-            onClick={() => remove(k)}
-            className="text-sm px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 transition-colors"
-          >
-            Löschen
-          </button>
-        </div>
+        {tokenOpen && (
+          <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50 flex items-center gap-3 flex-wrap">
+            <span className="text-xs text-gray-500 font-medium flex-shrink-0">Kunden-Zugangstoken:</span>
+            {k.access_token ? (
+              <>
+                <code className="text-xs bg-white border border-gray-200 px-2 py-1 rounded font-mono text-gray-700 flex-1 min-w-0 truncate">
+                  {k.access_token}
+                </code>
+                <button
+                  onClick={() => copyToken(k)}
+                  className="text-xs text-init-green hover:text-init-green-dark font-medium px-2 py-1 flex-shrink-0"
+                >
+                  {copiedId === k.id ? 'Kopiert' : 'Kopieren'}
+                </button>
+              </>
+            ) : (
+              <span className="text-xs text-gray-400 italic flex-1">Kein Token gesetzt</span>
+            )}
+            <button
+              onClick={() => regenerateToken(k)}
+              className="text-xs text-gray-500 hover:text-hanse-navy font-medium px-2 py-1 flex-shrink-0"
+            >
+              {k.access_token ? 'Neu generieren' : 'Erstellen'}
+            </button>
+          </div>
+        )}
       </div>
     );
   };
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
+      <div className="mb-6 flex items-baseline justify-between gap-4 flex-wrap">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-1 h-8 bg-init-green rounded-full" />
-            <h1 className="text-2xl font-bold text-hanse-navy">KVP-Verwaltung</h1>
-          </div>
-          <p className="text-gray-500 ml-3">
-            Verkehrsunternehmen gruppiert nach Produkt. Produkt-Tags direkt am KVP klickbar zum schnellen Zuordnen.
-          </p>
+          <h1 className="text-xl font-semibold text-hanse-navy">KVP-Verwaltung</h1>
+          <p className="text-sm text-gray-500">Produkt-Tags klickbar zum Zuordnen.</p>
         </div>
-        <button onClick={startNew} className="btn-primary">Neuer KVP</button>
+        <button onClick={startNew} className="btn-primary text-sm">Neuer KVP</button>
       </div>
 
-      <div className="card mb-4">
-        <input
-          type="text"
-          className="input-field"
-          placeholder="Suche nach Name, Kürzel, E-Mail oder Region…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-      </div>
+      <input
+        type="text"
+        className="input-field mb-4"
+        placeholder="Suche…"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+      />
 
       {loading ? (
         <div className="text-center py-16 text-gray-400">Lade…</div>
       ) : kvps.length === 0 ? (
         <div className="text-center py-16 text-gray-400">Noch keine KVPs angelegt.</div>
       ) : (
-        <div className="space-y-6">
-          {PRODUCTS.map(p => (
+        <div className="space-y-5">
+          {PRODUCTS.map(p => grouped.groups[p]?.length > 0 && (
             <section key={p}>
               <div className="flex items-baseline gap-2 mb-2 px-1">
-                <h2 className="text-sm font-bold tracking-wide text-hanse-navy uppercase">{p}</h2>
-                <span className="text-xs text-gray-400">{grouped.groups[p]?.length || 0} KVP{grouped.groups[p]?.length === 1 ? '' : 's'}</span>
+                <h2 className="text-xs font-semibold tracking-wide text-gray-500 uppercase">{p}</h2>
+                <span className="text-xs text-gray-400">· {grouped.groups[p].length}</span>
               </div>
-              {grouped.groups[p]?.length > 0 ? (
-                <div className="space-y-2">{grouped.groups[p].map(renderRow)}</div>
-              ) : (
-                <div className="text-sm text-gray-400 italic px-1 py-2 border border-dashed border-gray-200 rounded-xl text-center">
-                  Keine KVPs für {p} zugewiesen.
-                </div>
-              )}
+              <div className="space-y-1.5">{grouped.groups[p].map(renderRow)}</div>
             </section>
           ))}
 
           {grouped.unassigned.length > 0 && (
             <section>
               <div className="flex items-baseline gap-2 mb-2 px-1">
-                <h2 className="text-sm font-bold tracking-wide text-gray-500 uppercase">Ohne Produkt</h2>
-                <span className="text-xs text-gray-400">{grouped.unassigned.length}</span>
+                <h2 className="text-xs font-semibold tracking-wide text-gray-400 uppercase">Ohne Produkt</h2>
+                <span className="text-xs text-gray-400">· {grouped.unassigned.length}</span>
               </div>
-              <div className="space-y-2">{grouped.unassigned.map(renderRow)}</div>
+              <div className="space-y-1.5">{grouped.unassigned.map(renderRow)}</div>
             </section>
           )}
         </div>

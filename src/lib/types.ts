@@ -6,6 +6,7 @@ export interface KVP {
   contact_name: string | null;
   region: string | null;
   products: string[];
+  access_token: string | null;
 }
 
 export const PRODUCTS = ['HTD', 'MaaS', 'Deutschlandticket'] as const;

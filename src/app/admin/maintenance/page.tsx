@@ -51,12 +51,12 @@ function toLocal(d: Date): string {
 
 function statusBadge(s: string) {
   const cls: Record<string, string> = {
-    'geplant': 'bg-blue-50 text-blue-700 border-blue-200',
-    'läuft': 'bg-amber-50 text-amber-700 border-amber-200',
-    'abgeschlossen': 'bg-green-50 text-green-700 border-green-200',
-    'abgesagt': 'bg-gray-100 text-gray-500 border-gray-200',
+    'geplant': 'bg-blue-50 text-blue-700',
+    'läuft': 'bg-amber-50 text-amber-700',
+    'abgeschlossen': 'bg-gray-50 text-gray-500',
+    'abgesagt': 'bg-gray-50 text-gray-400',
   };
-  return <span className={`text-xs font-semibold border px-2 py-0.5 rounded-lg ${cls[s] || ''}`}>{s.toUpperCase()}</span>;
+  return <span className={`text-xs font-medium px-2 py-0.5 rounded-md flex-shrink-0 ${cls[s] || ''}`}>{s}</span>;
 }
 
 export default function MaintenancePage() {
@@ -229,19 +229,13 @@ export default function MaintenancePage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
+      <div className="mb-6 flex items-baseline justify-between gap-4 flex-wrap">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-1 h-8 bg-init-green rounded-full" />
-            <h1 className="text-2xl font-bold text-hanse-navy">Geplante Wartungen</h1>
-          </div>
-          <p className="text-gray-500 ml-3">
-            Entwicklung legt Wartungsfenster an (mind. {MAINTENANCE_MIN_LEAD_DAYS} Tage im Voraus).
-            Admin wählt eine Wartung und versendet die Kunden-Ankündigung.
-          </p>
+          <h1 className="text-xl font-semibold text-hanse-navy">Wartungen</h1>
+          <p className="text-sm text-gray-500">Mindestvorlauf {MAINTENANCE_MIN_LEAD_DAYS} Tage.</p>
         </div>
-        <button onClick={() => { setDraft(defaultDraft()); setCreating(true); setError(null); }} className="btn-primary">
-          + Neue Wartung
+        <button onClick={() => { setDraft(defaultDraft()); setCreating(true); setError(null); }} className="btn-primary text-sm">
+          Neue Wartung
         </button>
       </div>
 
@@ -252,31 +246,20 @@ export default function MaintenancePage() {
           Noch keine Wartungen geplant.
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {list.map(m => (
-            <div key={m.id} className="card flex items-start justify-between gap-4">
+            <div key={m.id} className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3 hover:border-gray-300 transition-colors">
+              <span className="text-xs font-mono text-gray-400 flex-shrink-0 w-16">{m.id}</span>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{m.id}</span>
-                  {statusBadge(m.status)}
-                </div>
-                <h3 className="font-semibold text-hanse-navy">{m.title}</h3>
-                <div className="text-sm text-gray-500 mt-1">
-                  Zeitraum: {formatDate(m.start_time)} – {formatDate(m.end_time)}
-                </div>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {(Array.isArray(m.affected_systems) ? m.affected_systems : []).map(s => (
-                    <span key={s} className="text-xs bg-init-green/10 text-init-green px-2 py-0.5 rounded-lg">{s}</span>
-                  ))}
-                  {m.kvps.map(k => (
-                    <span key={k.id} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg">{k.short_name}</span>
-                  ))}
+                <div className="text-sm font-medium text-hanse-navy truncate">{m.title}</div>
+                <div className="text-xs text-gray-500 mt-0.5 truncate">
+                  {formatDate(m.start_time)} – {formatDate(m.end_time)}
+                  {m.kvps.length > 0 && <span> · {m.kvps.map(k => k.short_name).join(', ')}</span>}
                 </div>
               </div>
-              <div className="flex flex-col gap-2 flex-shrink-0">
-                <button onClick={() => openEmail(m)} className="btn-primary text-sm">E-Mail-Vorlage</button>
-                <button onClick={() => remove(m)} className="text-xs px-3 py-1.5 rounded-xl text-red-600 hover:bg-red-50">Löschen</button>
-              </div>
+              {statusBadge(m.status)}
+              <button onClick={() => openEmail(m)} className="text-sm text-init-green hover:text-init-green-dark font-medium px-2 py-1 flex-shrink-0">E-Mail</button>
+              <button onClick={() => remove(m)} className="text-sm text-gray-400 hover:text-red-600 px-2 py-1 flex-shrink-0" title="Löschen">✕</button>
             </div>
           ))}
         </div>

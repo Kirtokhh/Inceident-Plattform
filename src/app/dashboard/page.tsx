@@ -31,6 +31,25 @@ function formatDate(iso: string) {
   });
 }
 
+function formatDurationShort(minutes: number): string {
+  if (!isFinite(minutes) || minutes < 0) return '–';
+  const days = Math.floor(minutes / (60 * 24));
+  const hours = Math.floor((minutes % (60 * 24)) / 60);
+  const mins = Math.round(minutes % 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+}
+
+function median(arr: number[]): number {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
+}
+
 /* ─── SVG Line Chart with Monthly / Daily Zoom ─── */
 function IncidentChart({ incidents }: { incidents: IncidentWithKVPs[] }) {
   // null = monthly overview, string = zoomed into that month (e.g. "2026-05")
@@ -233,6 +252,58 @@ export default function DashboardPage() {
     }
   }, [admin]);
 
+  // Lösungszeit-Auswertung
+  const resolutionStats = useMemo(() => {
+    const resolved = incidents
+      .filter(i => i.status === 'gelöst' && i.start_time && i.resolved_time)
+      .map(i => ({
+        priority: i.priority,
+        resolved_time: i.resolved_time as string,
+        mins: (new Date(i.resolved_time as string).getTime() - new Date(i.start_time).getTime()) / 60000,
+      }))
+      .filter(x => x.mins > 0);
+
+    const all = resolved.map(r => r.mins);
+    const overall = {
+      count: all.length,
+      avg: all.length ? all.reduce((a, b) => a + b, 0) / all.length : 0,
+      med: median(all),
+      min: all.length ? Math.min(...all) : 0,
+      max: all.length ? Math.max(...all) : 0,
+    };
+
+    const byPrio: { priority: string; count: number; avg: number; med: number }[] = [];
+    for (const p of ['kritisch', 'hoch', 'mittel', 'niedrig']) {
+      const subset = resolved.filter(r => r.priority === p).map(r => r.mins);
+      if (subset.length > 0) {
+        byPrio.push({
+          priority: p,
+          count: subset.length,
+          avg: subset.reduce((a, b) => a + b, 0) / subset.length,
+          med: median(subset),
+        });
+      }
+    }
+
+    // Letzte 6 Monate Trend
+    const today = new Date();
+    const months: { label: string; key: string; count: number; avg: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('de-DE', { month: 'short' });
+      const subset = resolved.filter(r => r.resolved_time.slice(0, 7) === key).map(r => r.mins);
+      months.push({
+        label,
+        key,
+        count: subset.length,
+        avg: subset.length ? subset.reduce((a, b) => a + b, 0) / subset.length : 0,
+      });
+    }
+
+    return { overall, byPrio, months };
+  }, [incidents]);
+
   if (authLoading || !admin) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -257,44 +328,117 @@ export default function DashboardPage() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-1 h-8 bg-init-green rounded-full" />
-          <h1 className="text-2xl font-bold text-hanse-navy">Admin Dashboard</h1>
-        </div>
-        <p className="text-gray-500 ml-3">Willkommen, {admin.display_name} – Incident-Verwaltung</p>
+      <div className="mb-6 flex items-baseline justify-between flex-wrap gap-2">
+        <h1 className="text-xl font-semibold text-hanse-navy">Dashboard</h1>
+        <p className="text-sm text-gray-500">Willkommen, {admin.display_name}</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        <div className="card text-center">
-          <div className="text-2xl font-bold text-hanse-navy">{stats.total}</div>
-          <div className="text-xs text-gray-500 mt-1 font-medium">Gesamt</div>
-        </div>
-        <div className="card text-center border-l-4 border-l-brand-red">
-          <div className="text-2xl font-bold text-brand-red">{stats.kritisch}</div>
-          <div className="text-xs text-gray-500 mt-1 font-medium">Kritisch</div>
-        </div>
-        <div className="card text-center border-l-4 border-l-red-400">
-          <div className="text-2xl font-bold text-red-500">{stats.offen}</div>
-          <div className="text-xs text-gray-500 mt-1 font-medium">Offen</div>
-        </div>
-        <div className="card text-center border-l-4 border-l-hanse-navy">
-          <div className="text-2xl font-bold text-hanse-navy">{stats.inPruefung}</div>
-          <div className="text-xs text-gray-500 mt-1 font-medium">In Prüfung</div>
-        </div>
-        <div className="card text-center border-l-4 border-l-brand-gold">
-          <div className="text-2xl font-bold text-amber-600">{stats.workaround}</div>
-          <div className="text-xs text-gray-500 mt-1 font-medium">Workaround</div>
-        </div>
-        <div className="card text-center border-l-4 border-l-init-green">
-          <div className="text-2xl font-bold text-init-green">{stats.geloest}</div>
-          <div className="text-xs text-gray-500 mt-1 font-medium">Gelöst</div>
-        </div>
+      {/* Stats — kompakt als einzelne Zeile */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-gray-200 rounded-xl overflow-hidden mb-6 border border-gray-200">
+        {[
+          { label: 'Gesamt', value: stats.total, color: 'text-hanse-navy' },
+          { label: 'Kritisch', value: stats.kritisch, color: 'text-brand-red' },
+          { label: 'Offen', value: stats.offen, color: 'text-red-500' },
+          { label: 'In Prüfung', value: stats.inPruefung, color: 'text-hanse-navy' },
+          { label: 'Workaround', value: stats.workaround, color: 'text-amber-600' },
+          { label: 'Gelöst', value: stats.geloest, color: 'text-init-green' },
+        ].map(s => (
+          <div key={s.label} className="bg-white px-4 py-3 text-center">
+            <div className={`text-xl font-semibold ${s.color}`}>{s.value}</div>
+            <div className="text-xs text-gray-500 mt-0.5">{s.label}</div>
+          </div>
+        ))}
       </div>
 
       {/* Line Chart */}
       <IncidentChart incidents={incidents} />
+
+      {/* Lösungszeit-Auswertung */}
+      <div className="card mb-8">
+        <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
+          <h2 className="text-base font-semibold text-hanse-navy">Lösungszeit</h2>
+          <span className="text-xs text-gray-400">
+            Basis: {resolutionStats.overall.count} gelöste Incident{resolutionStats.overall.count === 1 ? '' : 's'}
+          </span>
+        </div>
+
+        {resolutionStats.overall.count === 0 ? (
+          <div className="text-sm text-gray-400 italic py-6 text-center">
+            Noch keine gelösten Incidents für die Auswertung vorhanden.
+          </div>
+        ) : (
+          <>
+            {/* Kennzahlen */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-200 rounded-xl overflow-hidden border border-gray-200 mb-5">
+              {[
+                { label: 'Ø Durchschnitt', value: formatDurationShort(resolutionStats.overall.avg) },
+                { label: 'Median', value: formatDurationShort(resolutionStats.overall.med) },
+                { label: 'Schnellste', value: formatDurationShort(resolutionStats.overall.min) },
+                { label: 'Längste', value: formatDurationShort(resolutionStats.overall.max) },
+              ].map(s => (
+                <div key={s.label} className="bg-white px-4 py-3 text-center">
+                  <div className="text-lg font-semibold text-hanse-navy">{s.value}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Nach Priorität */}
+              {resolutionStats.byPrio.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold tracking-wide text-gray-500 uppercase mb-2">Nach Priorität</h3>
+                  <div className="space-y-1.5">
+                    {resolutionStats.byPrio.map(p => {
+                      const cls: Record<string, string> = {
+                        kritisch: 'bg-brand-red',
+                        hoch: 'bg-orange-500',
+                        mittel: 'bg-amber-500',
+                        niedrig: 'bg-init-green',
+                      };
+                      return (
+                        <div key={p.priority} className="flex items-center gap-3 text-sm">
+                          <div className={`w-1.5 h-1.5 rounded-full ${cls[p.priority] || 'bg-gray-400'}`} />
+                          <span className="text-hanse-navy w-20 capitalize">{p.priority}</span>
+                          <span className="text-xs text-gray-400 w-16">{p.count} Stk.</span>
+                          <span className="text-gray-600 flex-1">Ø {formatDurationShort(p.avg)}</span>
+                          <span className="text-gray-400 text-xs">Med. {formatDurationShort(p.med)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Trend letzte 6 Monate */}
+              <div>
+                <h3 className="text-xs font-semibold tracking-wide text-gray-500 uppercase mb-2">Trend (Ø pro Monat)</h3>
+                {(() => {
+                  const maxAvg = Math.max(...resolutionStats.months.map(m => m.avg), 1);
+                  return (
+                    <div className="space-y-1.5">
+                      {resolutionStats.months.map(m => (
+                        <div key={m.key} className="flex items-center gap-3 text-sm">
+                          <span className="w-10 text-xs text-gray-500">{m.label}</span>
+                          <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-init-green/70 rounded-full transition-all"
+                              style={{ width: `${(m.avg / maxAvg) * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-gray-500 w-24 text-right">
+                            {m.count > 0 ? `${formatDurationShort(m.avg)} (${m.count})` : '–'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Filter */}
       <div className="flex gap-2 mb-6 flex-wrap">
@@ -327,50 +471,31 @@ export default function DashboardPage() {
           </a>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {filtered.map(incident => {
             const systems = Array.isArray(incident.affected_systems) ? incident.affected_systems : [];
-            const processes = Array.isArray(incident.affected_processes) ? incident.affected_processes : [];
             return (
               <a
                 key={incident.id}
                 href={`/incidents/${incident.id}`}
-                className="card block hover:shadow-card-hover hover:border-init-green/30 transition-all duration-200 cursor-pointer"
+                className="flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-xl bg-white hover:border-gray-300 transition-colors"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2.5 mb-2">
-                      <span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{incident.id}</span>
-                      <PriorityBadge priority={incident.priority} />
-                      <StatusBadge status={incident.status} />
-                      {incident.is_warning && (
-                        <span className="badge bg-amber-50 text-amber-700 border border-amber-200">EINSCHRÄNKUNG</span>
-                      )}
-                    </div>
-                    <h3 className="text-lg font-semibold text-hanse-navy truncate">{incident.title}</h3>
-                    <div className="flex items-center gap-3 mt-2 text-sm text-gray-500 flex-wrap">
-                      {systems.map(s => (
-                        <span key={s} className="flex items-center gap-1">
-                          <span className="text-init-green">›</span> {s}
-                        </span>
-                      ))}
-                      <span className="text-gray-300">|</span>
-                      <span>{formatDate(incident.start_time)}</span>
-                    </div>
-                    {processes.length > 0 && (
-                      <div className="flex gap-1.5 mt-2 flex-wrap">
-                        {processes.map(p => (
-                          <span key={p} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-lg">
-                            {p}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                <span className="text-xs font-mono text-gray-400 flex-shrink-0 w-16">{incident.id}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-hanse-navy truncate">{incident.title}</div>
+                  <div className="text-xs text-gray-500 mt-0.5 truncate">
+                    {systems.join(', ')} · {formatDate(incident.start_time)}
                   </div>
-                  <svg className="w-5 h-5 text-gray-300 flex-shrink-0 mt-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
                 </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {incident.is_warning && (
+                    <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded">Einschr.</span>
+                  )}
+                  <StatusBadge status={incident.status} />
+                </div>
+                <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </a>
             );
           })}
