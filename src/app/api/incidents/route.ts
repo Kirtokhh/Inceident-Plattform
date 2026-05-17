@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
-import { CreateIncidentRequest, Incident, KVP } from '@/lib/types';
+import { CreateIncidentRequest, Incident, KVP, Priority } from '@/lib/types';
 import { determineRecipients } from '@/lib/recipients';
 import { generateEmailSubject, generateEmailBody } from '@/lib/email-templates';
 import { sendEmail } from '@/lib/mailer';
+import { requireAdmin, isResponse } from '@/lib/auth';
 
-export async function GET() {
+const VALID_PRIORITIES: Priority[] = ['kritisch', 'hoch', 'mittel', 'niedrig'];
+
+export async function GET(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (isResponse(auth)) return auth;
   const pool = await getPool();
   const incidentResult = await pool.query(`
     SELECT * FROM incident ORDER BY
@@ -33,11 +38,18 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (isResponse(auth)) return auth;
   const body: CreateIncidentRequest = await req.json();
 
-  if (!body.title || !body.affected_systems?.length || !body.affected_processes?.length || !body.priority || !body.start_time) {
+  if (!body.title || !body.affected_systems?.length || !body.affected_processes?.length || !body.start_time) {
     return NextResponse.json({ error: 'Pflichtfelder fehlen' }, { status: 400 });
   }
+
+  // Priority kann vom Client weggelassen werden (Formular leitet sie nicht mehr ab → wir machen es serverseitig)
+  const priority: Priority = VALID_PRIORITIES.includes(body.priority)
+    ? body.priority
+    : (body.is_warning ? 'mittel' : 'hoch');
 
   const pool = await getPool();
   const seqResult = await pool.query("SELECT nextval('incident_seq') AS num");
@@ -47,7 +59,7 @@ export async function POST(req: NextRequest) {
   await pool.query(
     `INSERT INTO incident (id, title, description, affected_systems, affected_processes, is_warning, priority, status, start_time)
      VALUES ($1, $2, $3, $4, $5, $6, $7, 'offen', $8)`,
-    [id, body.title, body.description || null, JSON.stringify(body.affected_systems), JSON.stringify(body.affected_processes), body.is_warning || false, body.priority, body.start_time]
+    [id, body.title, body.description || null, JSON.stringify(body.affected_systems), JSON.stringify(body.affected_processes), body.is_warning || false, priority, body.start_time]
   );
 
   if (body.kvp_ids && body.kvp_ids.length > 0) {
@@ -71,7 +83,7 @@ export async function POST(req: NextRequest) {
   );
   const kvps = kvpResult.rows as KVP[];
 
-  const recipients = await determineRecipients(body.affected_processes[0] || '', body.priority, body.kvp_ids || []);
+  const recipients = await determineRecipients(body.affected_processes[0] || '', priority, body.kvp_ids || []);
   const subject = generateEmailSubject(incident, 'Erstmeldung');
   const emailBody = generateEmailBody(incident, kvps, 'Erstmeldung', '');
 
@@ -90,5 +102,5 @@ export async function POST(req: NextRequest) {
     [id, updateResult.rows[0].id, JSON.stringify(recipients.allEmails), subject, emailBody, emailStatus, errorMsg]
   );
 
-  return NextResponse.json({ id, ...incident, kvps }, { status: 201 });
+  return NextResponse.json({ ...incident, kvps }, { status: 201 });
 }

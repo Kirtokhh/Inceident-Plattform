@@ -28,9 +28,14 @@ async function initializeSchema() {
         short_name TEXT NOT NULL,
         contact_email TEXT NOT NULL,
         contact_name TEXT,
+        region TEXT,
+        products JSONB NOT NULL DEFAULT '[]'::jsonb,
         access_token TEXT UNIQUE,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+
+      ALTER TABLE kvp ADD COLUMN IF NOT EXISTS region TEXT;
+      ALTER TABLE kvp ADD COLUMN IF NOT EXISTS products JSONB NOT NULL DEFAULT '[]'::jsonb;
 
       CREATE TABLE IF NOT EXISTS stakeholder (
         id SERIAL PRIMARY KEY,
@@ -69,7 +74,7 @@ async function initializeSchema() {
         id SERIAL PRIMARY KEY,
         incident_id TEXT NOT NULL REFERENCES incident(id) ON DELETE CASCADE,
         update_type TEXT NOT NULL CHECK(update_type IN (
-          'Erstmeldung', 'Zwischenupdate', 'Workaround', 'Entwarnung', 'Abschluss/RCA'
+          'Erstmeldung', 'Zwischenupdate', 'Workaround', 'Abschluss/RCA'
         )),
         message TEXT NOT NULL,
         created_by TEXT,
@@ -81,7 +86,7 @@ async function initializeSchema() {
         incident_id TEXT NOT NULL REFERENCES incident(id) ON DELETE CASCADE,
         update_id INTEGER REFERENCES incident_update(id),
         email_type TEXT NOT NULL CHECK(email_type IN (
-          'Erstmeldung', 'Zwischenupdate', 'Workaround', 'Entwarnung', 'Abschluss/RCA'
+          'Erstmeldung', 'Zwischenupdate', 'Workaround', 'Abschluss/RCA'
         )),
         recipients TEXT NOT NULL,
         subject TEXT NOT NULL,
@@ -100,6 +105,31 @@ async function initializeSchema() {
         stakeholder_id INTEGER REFERENCES stakeholder(id) ON DELETE CASCADE,
         always_notify BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE SEQUENCE IF NOT EXISTS maintenance_seq START 1;
+
+      CREATE TABLE IF NOT EXISTS maintenance (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        affected_systems JSONB NOT NULL DEFAULT '[]',
+        affected_processes JSONB NOT NULL DEFAULT '[]',
+        expected_impact TEXT,
+        start_time TIMESTAMPTZ NOT NULL,
+        end_time TIMESTAMPTZ NOT NULL,
+        status TEXT NOT NULL DEFAULT 'geplant' CHECK(status IN (
+          'geplant', 'läuft', 'abgeschlossen', 'abgesagt'
+        )),
+        created_by TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS maintenance_kvp (
+        maintenance_id TEXT NOT NULL REFERENCES maintenance(id) ON DELETE CASCADE,
+        kvp_id INTEGER NOT NULL REFERENCES kvp(id) ON DELETE CASCADE,
+        PRIMARY KEY (maintenance_id, kvp_id)
       );
 
       CREATE TABLE IF NOT EXISTS admin_user (

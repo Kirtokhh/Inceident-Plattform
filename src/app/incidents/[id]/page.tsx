@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { Incident, KVP, IncidentUpdate, EmailLog, EmailType } from '@/lib/types';
 import { useAdminAuth } from '@/lib/admin-auth-context';
 
-const EMAIL_TYPES: EmailType[] = ['Erstmeldung', 'Zwischenupdate', 'Workaround', 'Entwarnung', 'Abschluss/RCA'];
+const EMAIL_TYPES: EmailType[] = ['Erstmeldung', 'Zwischenupdate', 'Workaround', 'Abschluss/RCA'];
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString('de-DE', {
@@ -138,7 +138,7 @@ export default function IncidentDetailPage() {
               <PriorityBadge priority={incident.priority} />
               <StatusBadge status={incident.status} />
               {incident.is_warning && (
-                <span className="badge bg-amber-50 text-amber-700 border border-amber-200">⚠ WARNING</span>
+                <span className="badge bg-amber-50 text-amber-700 border border-amber-200">EINSCHRÄNKUNG</span>
               )}
             </div>
             <h1 className="text-2xl font-bold text-hanse-navy">{incident.title}</h1>
@@ -221,7 +221,7 @@ export default function IncidentDetailPage() {
           </div>
           {incident.is_warning && (
             <div className="mt-3 text-amber-700 text-sm bg-amber-50 rounded-lg px-3 py-2 border border-amber-200">
-              ⚠️ Warning – Eingeschränkte Funktionalität
+              Einschränkung – Funktionalität nur teilweise betroffen, kein Totalausfall.
             </div>
           )}
         </div>
@@ -277,7 +277,7 @@ export default function IncidentDetailPage() {
 
       {incident.root_cause && (
         <div className="card mb-4 border-l-4 border-l-init-green">
-          <div className="text-xs text-init-green uppercase tracking-wider font-semibold mb-2">📋 Root Cause</div>
+          <div className="text-xs text-init-green uppercase tracking-wider font-semibold mb-2">Root Cause</div>
           <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{incident.root_cause}</p>
         </div>
       )}
@@ -316,7 +316,6 @@ export default function IncidentDetailPage() {
                       update.update_type === 'Erstmeldung' ? 'badge-offen' :
                       update.update_type === 'Zwischenupdate' ? 'badge-prüfung' :
                       update.update_type === 'Workaround' ? 'badge-workaround' :
-                      update.update_type === 'Entwarnung' ? 'badge-gelöst' :
                       'badge-gelöst'
                     }`}>
                       {update.update_type}

@@ -48,7 +48,18 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({ kvp, incidents });
+    // Upcoming + running maintenance for this KVP
+    const maintResult = await pool.query(`
+      SELECT m.id, m.title, m.description, m.affected_systems, m.affected_processes,
+             m.expected_impact, m.start_time, m.end_time, m.status
+      FROM maintenance m
+      INNER JOIN maintenance_kvp mk ON mk.maintenance_id = m.id
+      WHERE mk.kvp_id = $1
+        AND m.status IN ('geplant', 'läuft')
+      ORDER BY m.start_time ASC
+    `, [kvp.id]);
+
+    return NextResponse.json({ kvp, incidents, maintenances: maintResult.rows });
   } catch (error) {
     console.error('Status API error:', error);
     return NextResponse.json({ error: 'Interner Serverfehler' }, { status: 500 });

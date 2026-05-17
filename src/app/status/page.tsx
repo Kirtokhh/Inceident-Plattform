@@ -8,6 +8,18 @@ interface KVPInfo {
   short_name: string;
 }
 
+interface StatusMaintenance {
+  id: string;
+  title: string;
+  description: string | null;
+  affected_systems: string[];
+  affected_processes: string[];
+  expected_impact: string | null;
+  start_time: string;
+  end_time: string;
+  status: string;
+}
+
 interface StatusIncident {
   id: number;
   title: string;
@@ -36,14 +48,16 @@ function formatDate(iso: string) {
   });
 }
 
-function PriorityLabel({ priority }: { priority: string }) {
-  const colors: Record<string, string> = {
-    kritisch: 'text-brand-red',
-    hoch: 'text-orange-600',
-    mittel: 'text-amber-600',
-    niedrig: 'text-init-green',
-  };
-  return <span className={`text-xs font-semibold ${colors[priority] || 'text-gray-500'}`}>{priority.toUpperCase()}</span>;
+function formatDuration(ms: number): string {
+  const totalMinutes = Math.floor(ms / 60000);
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days} Tag${days === 1 ? '' : 'e'}`);
+  if (hours > 0) parts.push(`${hours} Std`);
+  if (minutes > 0 && days === 0) parts.push(`${minutes} Min`);
+  return parts.length > 0 ? parts.join(' ') : '<1 Min';
 }
 
 export default function StatusPage() {
@@ -51,6 +65,7 @@ export default function StatusPage() {
   const [authenticated, setAuthenticated] = useState(false);
   const [kvp, setKvp] = useState<KVPInfo | null>(null);
   const [incidents, setIncidents] = useState<StatusIncident[]>([]);
+  const [maintenances, setMaintenances] = useState<StatusMaintenance[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -74,6 +89,7 @@ export default function StatusPage() {
         const data = await res.json();
         setKvp(data.kvp);
         setIncidents(data.incidents);
+        setMaintenances(data.maintenances || []);
         setAuthenticated(true);
         sessionStorage.setItem('kvp_access_token', accessToken);
       } else {
@@ -100,6 +116,7 @@ export default function StatusPage() {
     setAuthenticated(false);
     setKvp(null);
     setIncidents([]);
+    setMaintenances([]);
     setToken('');
     setExpandedId(null);
     sessionStorage.removeItem('kvp_access_token');
@@ -212,6 +229,53 @@ export default function StatusPage() {
         </div>
       )}
 
+      {/* Geplante Wartungen */}
+      {maintenances.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-base font-semibold text-hanse-navy mb-4">Geplante Wartungen</h2>
+          <div className="space-y-3">
+            {maintenances.map(m => (
+              <div key={m.id} className="card border-l-4 border-l-blue-400">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{m.id}</span>
+                      <span className={`text-xs font-semibold border px-2 py-0.5 rounded-lg ${
+                        m.status === 'läuft'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-blue-50 text-blue-700 border-blue-200'
+                      }`}>
+                        {m.status === 'läuft' ? 'LÄUFT' : 'GEPLANT'}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold text-hanse-navy">{m.title}</h3>
+                    <div className="text-sm text-gray-600 mt-1">
+                      Zeitraum: {formatDate(m.start_time)} – {formatDate(m.end_time)}
+                    </div>
+                    {m.expected_impact && (
+                      <div className="text-sm text-gray-600 mt-2">
+                        <b>Auswirkung:</b> {m.expected_impact}
+                      </div>
+                    )}
+                    {m.description && (
+                      <div className="text-sm text-gray-500 mt-1 whitespace-pre-wrap">{m.description}</div>
+                    )}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {(m.affected_systems || []).map(s => (
+                        <span key={s} className="text-xs bg-init-green/10 text-init-green px-2 py-0.5 rounded-lg">{s}</span>
+                      ))}
+                      {(m.affected_processes || []).map(p => (
+                        <span key={p} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-lg">{p}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Active Incidents */}
       {activeIncidents.length > 0 && (
         <div className="mb-8">
@@ -232,7 +296,11 @@ export default function StatusPage() {
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="font-semibold text-hanse-navy">{incident.title}</h3>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <PriorityLabel priority={incident.priority} />
+                        {incident.is_warning ? (
+                          <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">Einschränkung</span>
+                        ) : (
+                          <span className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-lg">Störung</span>
+                        )}
                         <svg className={`w-4 h-4 text-gray-400 transition-transform ${expandedId === incident.id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
@@ -253,10 +321,16 @@ export default function StatusPage() {
                       ))}
                     </div>
 
-                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-400 flex-wrap">
                       <span className="text-gray-500 font-medium">{incident.status}</span>
                       <span>•</span>
                       <span>Seit {formatDate(incident.start_time)}</span>
+                      {incident.resolved_time && (
+                        <>
+                          <span>•</span>
+                          <span className="text-init-green font-medium">Gelöst: {formatDate(incident.resolved_time)}</span>
+                        </>
+                      )}
                     </div>
 
                     {/* Expanded Detail */}
@@ -297,21 +371,34 @@ export default function StatusPage() {
         <div>
           <h2 className="text-base font-semibold text-hanse-navy mb-4">Kürzlich gelöste Störungen</h2>
           <div className="space-y-2">
-            {resolvedIncidents.slice(0, 10).map(incident => (
-              <div key={incident.id} className="card py-4 opacity-80">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-init-green flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-hanse-navy text-sm">{incident.title}</h3>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                      <span>{(incident.affected_systems || []).join(', ')}</span>
-                      <span>•</span>
-                      <span>Gelöst: {incident.resolved_time ? formatDate(incident.resolved_time) : formatDate(incident.updated_at)}</span>
+            {resolvedIncidents.slice(0, 10).map(incident => {
+              const resolved = incident.resolved_time || incident.updated_at;
+              const durationMs = new Date(resolved).getTime() - new Date(incident.start_time).getTime();
+              const durationStr = durationMs > 0 ? formatDuration(durationMs) : null;
+              return (
+                <div key={incident.id} className="card py-4 opacity-80">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full bg-init-green flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-hanse-navy text-sm">{incident.title}</h3>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 flex-wrap">
+                        <span>{(incident.affected_systems || []).join(', ')}</span>
+                        <span>•</span>
+                        <span>Beginn: {formatDate(incident.start_time)}</span>
+                        <span>•</span>
+                        <span className="text-init-green font-medium">Gelöst: {formatDate(resolved)}</span>
+                        {durationStr && (
+                          <>
+                            <span>•</span>
+                            <span>Dauer: {durationStr}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

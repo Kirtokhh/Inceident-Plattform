@@ -16,7 +16,13 @@ export async function determineRecipients(
       `SELECT contact_email FROM kvp WHERE id IN (${placeholders})`,
       kvpIds
     );
-    kvpEmails.push(...kvpResult.rows.map((k: { contact_email: string }) => k.contact_email));
+    for (const row of kvpResult.rows as { contact_email: string }[]) {
+      const split = (row.contact_email || '')
+        .split(/[,;]/)
+        .map(e => e.trim())
+        .filter(Boolean);
+      kvpEmails.push(...split);
+    }
   }
 
   // Get stakeholders based on rules

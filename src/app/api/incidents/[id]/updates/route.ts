@@ -4,11 +4,14 @@ import { CreateUpdateRequest, Incident, KVP } from '@/lib/types';
 import { determineRecipients } from '@/lib/recipients';
 import { generateEmailSubject, generateEmailBody } from '@/lib/email-templates';
 import { sendEmail } from '@/lib/mailer';
+import { requireAdmin, isResponse } from '@/lib/auth';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireAdmin(req);
+  if (isResponse(auth)) return auth;
   const pool = await getPool();
   const result = await pool.query(
     'SELECT * FROM incident_update WHERE incident_id = $1 ORDER BY created_at DESC',
@@ -21,6 +24,8 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireAdmin(req);
+  if (isResponse(auth)) return auth;
   const pool = await getPool();
 
   const incidentResult = await pool.query('SELECT * FROM incident WHERE id = $1', [params.id]);
@@ -40,11 +45,6 @@ export async function POST(
       "UPDATE incident SET status = 'Workaround', workaround_description = $1, updated_at = NOW() WHERE id = $2",
       [body.message, params.id]
     );
-  } else if (body.update_type === 'Entwarnung') {
-    await pool.query(
-      "UPDATE incident SET status = 'gelöst', resolved_time = NOW(), updated_at = NOW() WHERE id = $1",
-      [params.id]
-    );
   } else if (body.update_type === 'Zwischenupdate') {
     await pool.query(
       "UPDATE incident SET status = 'in Prüfung', updated_at = NOW() WHERE id = $1",
@@ -52,7 +52,7 @@ export async function POST(
     );
   } else if (body.update_type === 'Abschluss/RCA') {
     await pool.query(
-      "UPDATE incident SET status = 'gelöst', root_cause = $1, updated_at = NOW() WHERE id = $2",
+      "UPDATE incident SET status = 'gelöst', root_cause = $1, resolved_time = COALESCE(resolved_time, NOW()), updated_at = NOW() WHERE id = $2",
       [body.message, params.id]
     );
   }

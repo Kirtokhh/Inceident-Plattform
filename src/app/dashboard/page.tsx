@@ -344,7 +344,7 @@ export default function DashboardPage() {
                       <PriorityBadge priority={incident.priority} />
                       <StatusBadge status={incident.status} />
                       {incident.is_warning && (
-                        <span className="badge bg-amber-50 text-amber-700 border border-amber-200">⚠ WARNING</span>
+                        <span className="badge bg-amber-50 text-amber-700 border border-amber-200">EINSCHRÄNKUNG</span>
                       )}
                     </div>
                     <h3 className="text-lg font-semibold text-hanse-navy truncate">{incident.title}</h3>
@@ -355,7 +355,7 @@ export default function DashboardPage() {
                         </span>
                       ))}
                       <span className="text-gray-300">|</span>
-                      <span>🕐 {formatDate(incident.start_time)}</span>
+                      <span>{formatDate(incident.start_time)}</span>
                     </div>
                     {processes.length > 0 && (
                       <div className="flex gap-1.5 mt-2 flex-wrap">

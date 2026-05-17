@@ -18,15 +18,19 @@ function getTransporter(): nodemailer.Transporter {
 }
 
 export async function sendEmail(
-  to: string[],
+  recipients: string[],
   subject: string,
   body: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const t = getTransporter();
+    const from = process.env.SMTP_FROM || '"Operations-Team" <incident@example.com>';
+    // Alle Empfänger gehen in BCC — Kunden sehen keine anderen Adressen.
+    // "to" zeigt auf den Absender selbst, damit die Mail einen sichtbaren Empfänger hat.
     await t.sendMail({
-      from: process.env.SMTP_FROM || '"TransitIncidentHub" <incident@example.com>',
-      to: to.join(', '),
+      from,
+      to: from,
+      bcc: recipients.join(', '),
       subject,
       text: body,
     });

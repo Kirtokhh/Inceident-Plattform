@@ -8,7 +8,7 @@ export default function NavBar() {
   const pathname = usePathname();
 
   // Public pages: don't show admin nav
-  const isAdminArea = pathname.startsWith('/dashboard') || pathname.startsWith('/incidents');
+  const isAdminArea = pathname.startsWith('/dashboard') || pathname.startsWith('/incidents') || pathname.startsWith('/admin');
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
@@ -24,6 +24,16 @@ export default function NavBar() {
                   pathname === '/dashboard' ? 'bg-init-green/10 text-init-green' : 'text-hanse-navy hover:bg-init-green/5 hover:text-init-green'
                 }`}>
                   Dashboard
+                </a>
+                <a href="/admin/kvps" className={`px-4 py-2 rounded-xl transition-all text-sm font-medium ${
+                  pathname.startsWith('/admin/kvps') ? 'bg-init-green/10 text-init-green' : 'text-hanse-navy hover:bg-init-green/5 hover:text-init-green'
+                }`}>
+                  KVPs
+                </a>
+                <a href="/admin/maintenance" className={`px-4 py-2 rounded-xl transition-all text-sm font-medium ${
+                  pathname.startsWith('/admin/maintenance') ? 'bg-init-green/10 text-init-green' : 'text-hanse-navy hover:bg-init-green/5 hover:text-init-green'
+                }`}>
+                  Wartungen
                 </a>
                 <a href="/incidents/new" className="btn-primary text-sm ml-2">
                   + Neues Incident

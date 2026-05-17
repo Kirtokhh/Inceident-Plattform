@@ -5,7 +5,11 @@ export interface KVP {
   contact_email: string;
   contact_name: string | null;
   region: string | null;
+  products: string[];
 }
+
+export const PRODUCTS = ['HTD', 'MaaS', 'Deutschlandticket'] as const;
+export type Product = typeof PRODUCTS[number];
 
 export interface Stakeholder {
   id: number;
@@ -37,7 +41,7 @@ export type AffectedSystem = typeof AFFECTED_SYSTEMS[number];
 export type AffectedProcess = typeof AFFECTED_PROCESSES[number];
 export type Priority = 'kritisch' | 'hoch' | 'mittel' | 'niedrig';
 export type IncidentStatus = 'offen' | 'in Prüfung' | 'Workaround' | 'gelöst';
-export type EmailType = 'Erstmeldung' | 'Zwischenupdate' | 'Workaround' | 'Entwarnung' | 'Abschluss/RCA';
+export type EmailType = 'Erstmeldung' | 'Zwischenupdate' | 'Workaround' | 'Abschluss/RCA';
 
 export interface Incident {
   id: string;
@@ -100,6 +104,41 @@ export interface CreateIncidentRequest {
   start_time: string;
   kvp_ids: number[];
 }
+
+export type MaintenanceStatus = 'geplant' | 'läuft' | 'abgeschlossen' | 'abgesagt';
+
+export interface Maintenance {
+  id: string;
+  title: string;
+  description: string | null;
+  affected_systems: string[];
+  affected_processes: string[];
+  expected_impact: string | null;
+  start_time: string;
+  end_time: string;
+  status: MaintenanceStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MaintenanceWithKVPs extends Maintenance {
+  kvps: KVP[];
+}
+
+export interface CreateMaintenanceRequest {
+  title: string;
+  description?: string;
+  affected_systems: string[];
+  affected_processes: string[];
+  expected_impact?: string;
+  start_time: string;
+  end_time: string;
+  created_by?: string;
+  kvp_ids: number[];
+}
+
+export const MAINTENANCE_MIN_LEAD_DAYS = 14;
 
 export interface CreateUpdateRequest {
   update_type: EmailType;

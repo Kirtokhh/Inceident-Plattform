@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
 import { Incident, KVP, IncidentUpdate, EmailLog } from '@/lib/types';
+import { requireAdmin, isResponse } from '@/lib/auth';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireAdmin(req);
+  if (isResponse(auth)) return auth;
   const pool = await getPool();
 
   const incidentResult = await pool.query('SELECT * FROM incident WHERE id = $1', [params.id]);
@@ -43,6 +46,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireAdmin(req);
+  if (isResponse(auth)) return auth;
   const pool = await getPool();
 
   const existing = await pool.query('SELECT * FROM incident WHERE id = $1', [params.id]);
