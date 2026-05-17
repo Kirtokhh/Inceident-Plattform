@@ -41,7 +41,7 @@ export const AFFECTED_PROCESSES = [
 export type AffectedSystem = typeof AFFECTED_SYSTEMS[number];
 export type AffectedProcess = typeof AFFECTED_PROCESSES[number];
 export type Priority = 'kritisch' | 'hoch' | 'mittel' | 'niedrig';
-export type IncidentStatus = 'offen' | 'in Prüfung' | 'Workaround' | 'gelöst';
+export type IncidentStatus = 'offen' | 'Workaround' | 'gelöst';
 export type EmailType = 'Erstmeldung' | 'Zwischenupdate' | 'Workaround' | 'Abschluss/RCA';
 
 export interface Incident {

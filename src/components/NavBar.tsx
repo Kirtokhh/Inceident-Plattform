@@ -1,23 +1,25 @@
 'use client';
 
 import { useAdminAuth } from '@/lib/admin-auth-context';
+import { useT } from '@/lib/i18n';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-
-const VERWALTUNG_ITEMS = [
-  { href: '/admin/kvps', label: 'KVPs' },
-  { href: '/admin/users', label: 'Administratoren' },
-];
+import LangToggle from './LangToggle';
 
 export default function NavBar() {
   const { admin, loading, logout } = useAdminAuth();
+  const { t } = useT();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Public pages: don't show admin nav
+  const verwaltungItems = [
+    { href: '/admin/kvps', label: t('navKvps') },
+    { href: '/admin/users', label: t('navAdmins') },
+  ];
+
   const isAdminArea = pathname.startsWith('/dashboard') || pathname.startsWith('/incidents') || pathname.startsWith('/admin');
-  const isInVerwaltung = VERWALTUNG_ITEMS.some(i => pathname.startsWith(i.href));
+  const isInVerwaltung = verwaltungItems.some(i => pathname.startsWith(i.href));
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -36,7 +38,7 @@ export default function NavBar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <a href="/" className="flex items-center gap-2">
-            <span className="text-lg font-bold text-hanse-navy tracking-tight">IncidentHub</span>
+            <span className="text-lg font-bold text-hanse-navy tracking-tight">{t('brand')}</span>
           </a>
           <div className="flex items-center gap-1">
             {!loading && admin && isAdminArea ? (
@@ -44,7 +46,7 @@ export default function NavBar() {
                 <a href="/dashboard" className={`px-4 py-2 rounded-xl transition-all text-sm font-medium ${
                   pathname === '/dashboard' ? 'bg-init-green/10 text-init-green' : 'text-hanse-navy hover:bg-init-green/5 hover:text-init-green'
                 }`}>
-                  Dashboard
+                  {t('navDashboard')}
                 </a>
 
                 {/* Verwaltung Dropdown */}
@@ -55,14 +57,14 @@ export default function NavBar() {
                       isInVerwaltung ? 'bg-init-green/10 text-init-green' : 'text-hanse-navy hover:bg-init-green/5 hover:text-init-green'
                     }`}
                   >
-                    Verwaltung
+                    {t('navManagement')}
                     <svg className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
                   {open && (
                     <div className="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
-                      {VERWALTUNG_ITEMS.map(item => (
+                      {verwaltungItems.map(item => (
                         <a
                           key={item.href}
                           href={item.href}
@@ -82,18 +84,19 @@ export default function NavBar() {
                 <a href="/admin/maintenance" className={`px-4 py-2 rounded-xl transition-all text-sm font-medium ml-2 ${
                   pathname.startsWith('/admin/maintenance') ? 'bg-init-green/10 text-init-green' : 'text-hanse-navy hover:bg-init-green/5 hover:text-init-green'
                 }`}>
-                  Wartungen
+                  {t('navMaintenance')}
                 </a>
                 <a href="/incidents/new" className="btn-primary text-sm ml-2">
-                  + Neues Incident
+                  {t('navNewIncident')}
                 </a>
                 <div className="ml-4 pl-4 border-l border-gray-200 flex items-center gap-2">
+                  <LangToggle />
                   <span className="text-xs text-gray-500">{admin.display_name}</span>
                   <button
                     onClick={async () => { await logout(); window.location.href = '/'; }}
                     className="text-xs text-gray-400 hover:text-hanse-navy transition-colors px-2 py-1"
                   >
-                    Abmelden
+                    {t('navLogout')}
                   </button>
                 </div>
               </>
@@ -102,13 +105,14 @@ export default function NavBar() {
                 <a href="/status" className={`px-4 py-2 rounded-xl transition-all text-sm font-medium ${
                   pathname === '/status' ? 'bg-init-green/10 text-init-green' : 'text-hanse-navy hover:bg-init-green/5 hover:text-init-green'
                 }`}>
-                  Kunden-Portal
+                  {t('navCustomerPortal')}
                 </a>
                 <a href="/login" className={`px-4 py-2 rounded-xl transition-all text-sm font-medium ${
                   pathname === '/login' ? 'bg-init-green/10 text-init-green' : 'text-hanse-navy hover:bg-init-green/5 hover:text-init-green'
                 }`}>
-                  Admin
+                  {t('navAdmin')}
                 </a>
+                <LangToggle className="ml-2" />
               </>
             )}
           </div>

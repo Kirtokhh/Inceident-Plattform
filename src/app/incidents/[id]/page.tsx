@@ -27,7 +27,6 @@ function PriorityBadge({ priority }: { priority: string }) {
 function StatusBadge({ status }: { status: string }) {
   const cls: Record<string, string> = {
     'offen': 'badge-offen',
-    'in Prüfung': 'badge-prüfung',
     'Workaround': 'badge-workaround',
     'gelöst': 'badge-gelöst',
   };

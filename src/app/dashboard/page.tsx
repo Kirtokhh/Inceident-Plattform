@@ -3,29 +3,39 @@
 import { useEffect, useState, useMemo } from 'react';
 import { IncidentWithKVPs } from '@/lib/types';
 import { useAdminAuth } from '@/lib/admin-auth-context';
+import { useT, Lang } from '@/lib/i18n';
 
 function PriorityBadge({ priority }: { priority: string }) {
+  const { t } = useT();
   const cls: Record<string, string> = {
     kritisch: 'badge-kritisch',
     hoch: 'badge-hoch',
     mittel: 'badge-mittel',
     niedrig: 'badge-niedrig',
   };
-  return <span className={`badge ${cls[priority] || ''}`}>{priority.toUpperCase()}</span>;
+  const labelKey: Record<string, 'prioCritical' | 'prioHigh' | 'prioMedium' | 'prioLow'> = {
+    kritisch: 'prioCritical', hoch: 'prioHigh', mittel: 'prioMedium', niedrig: 'prioLow',
+  };
+  const label = labelKey[priority] ? t(labelKey[priority]) : priority;
+  return <span className={`badge ${cls[priority] || ''}`}>{label.toUpperCase()}</span>;
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useT();
   const cls: Record<string, string> = {
     'offen': 'badge-offen',
-    'in Prüfung': 'badge-prüfung',
     'Workaround': 'badge-workaround',
     'gelöst': 'badge-gelöst',
   };
-  return <span className={`badge ${cls[status] || ''}`}>{status}</span>;
+  const labelKey: Record<string, 'filterOpen' | 'filterWorkaround' | 'filterResolved'> = {
+    'offen': 'filterOpen', 'Workaround': 'filterWorkaround', 'gelöst': 'filterResolved',
+  };
+  const label = labelKey[status] ? t(labelKey[status]) : status;
+  return <span className={`badge ${cls[status] || ''}`}>{label}</span>;
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString('de-DE', {
+function formatDate(iso: string, lang: Lang) {
+  return new Date(iso).toLocaleString(lang === 'en' ? 'en-GB' : 'de-DE', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
@@ -52,6 +62,8 @@ function median(arr: number[]): number {
 
 /* ─── SVG Line Chart with Monthly / Daily Zoom ─── */
 function IncidentChart({ incidents }: { incidents: IncidentWithKVPs[] }) {
+  const { t, lang } = useT();
+  const dateLocale = lang === 'en' ? 'en-GB' : 'de-DE';
   // null = monthly overview, string = zoomed into that month (e.g. "2026-05")
   const [zoomedMonth, setZoomedMonth] = useState<string | null>(null);
 
@@ -61,12 +73,12 @@ function IncidentChart({ incidents }: { incidents: IncidentWithKVPs[] }) {
     for (let i = 11; i >= 0; i--) {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const label = d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
+      const label = d.toLocaleDateString(dateLocale, { month: 'short', year: '2-digit' });
       const count = incidents.filter(inc => inc.created_at?.slice(0, 7) === key).length;
       months.push({ label, key, count });
     }
     return months;
-  }, [incidents]);
+  }, [incidents, dateLocale]);
 
   const dailyData = useMemo(() => {
     if (!zoomedMonth) return [];
@@ -121,7 +133,7 @@ function IncidentChart({ incidents }: { incidents: IncidentWithKVPs[] }) {
 
   const zoomedMonthLabel = zoomedMonth
     ? new Date(Number(zoomedMonth.split('-')[0]), Number(zoomedMonth.split('-')[1]) - 1)
-        .toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
+        .toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' })
     : '';
 
   const handlePointClick = (index: number) => {
@@ -143,19 +155,19 @@ function IncidentChart({ incidents }: { incidents: IncidentWithKVPs[] }) {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Zurück
+              {t('back')}
             </button>
           )}
           <h2 className="text-base font-semibold text-hanse-navy">
-            {zoomedMonth ? zoomedMonthLabel : 'Incident-Verlauf (12 Monate)'}
+            {zoomedMonth ? zoomedMonthLabel : t('chartTitle12m')}
           </h2>
         </div>
         <div className="flex items-center gap-3">
           {!zoomedMonth && (
-            <span className="text-xs text-gray-400">Klick auf Monat zum Reinzoomen</span>
+            <span className="text-xs text-gray-400">{t('chartZoomHint')}</span>
           )}
           <span className="text-xs text-gray-400 font-medium">
-            {incidents.length} gesamt
+            {incidents.length} {t('chartTotal')}
           </span>
         </div>
       </div>
@@ -231,6 +243,8 @@ function IncidentChart({ incidents }: { incidents: IncidentWithKVPs[] }) {
 
 export default function DashboardPage() {
   const { admin, loading: authLoading } = useAdminAuth();
+  const { t, lang } = useT();
+  const dateLocale = lang === 'en' ? 'en-GB' : 'de-DE';
   const [incidents, setIncidents] = useState<IncidentWithKVPs[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
@@ -291,7 +305,7 @@ export default function DashboardPage() {
     for (let i = 5; i >= 0; i--) {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const label = d.toLocaleDateString('de-DE', { month: 'short' });
+      const label = d.toLocaleDateString(dateLocale, { month: 'short' });
       const subset = resolved.filter(r => r.resolved_time.slice(0, 7) === key).map(r => r.mins);
       months.push({
         label,
@@ -302,7 +316,7 @@ export default function DashboardPage() {
     }
 
     return { overall, byPrio, months };
-  }, [incidents]);
+  }, [incidents, dateLocale]);
 
   if (authLoading || !admin) {
     return (
@@ -319,7 +333,6 @@ export default function DashboardPage() {
   const stats = {
     total: incidents.length,
     offen: incidents.filter(i => i.status === 'offen').length,
-    inPruefung: incidents.filter(i => i.status === 'in Prüfung').length,
     workaround: incidents.filter(i => i.status === 'Workaround').length,
     geloest: incidents.filter(i => i.status === 'gelöst').length,
     kritisch: incidents.filter(i => i.priority === 'kritisch' && i.status !== 'gelöst').length,
@@ -329,19 +342,18 @@ export default function DashboardPage() {
     <div>
       {/* Header */}
       <div className="mb-6 flex items-baseline justify-between flex-wrap gap-2">
-        <h1 className="text-xl font-semibold text-hanse-navy">Dashboard</h1>
-        <p className="text-sm text-gray-500">Willkommen, {admin.display_name}</p>
+        <h1 className="text-xl font-semibold text-hanse-navy">{t('dashboardTitle')}</h1>
+        <p className="text-sm text-gray-500">{t('welcome')}, {admin.display_name}</p>
       </div>
 
       {/* Stats — kompakt als einzelne Zeile */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-gray-200 rounded-xl overflow-hidden mb-6 border border-gray-200">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-gray-200 rounded-xl overflow-hidden mb-6 border border-gray-200">
         {[
-          { label: 'Gesamt', value: stats.total, color: 'text-hanse-navy' },
-          { label: 'Kritisch', value: stats.kritisch, color: 'text-brand-red' },
-          { label: 'Offen', value: stats.offen, color: 'text-red-500' },
-          { label: 'In Prüfung', value: stats.inPruefung, color: 'text-hanse-navy' },
-          { label: 'Workaround', value: stats.workaround, color: 'text-amber-600' },
-          { label: 'Gelöst', value: stats.geloest, color: 'text-init-green' },
+          { label: t('statTotal'), value: stats.total, color: 'text-hanse-navy' },
+          { label: t('statCritical'), value: stats.kritisch, color: 'text-brand-red' },
+          { label: t('statOpen'), value: stats.offen, color: 'text-red-500' },
+          { label: t('statWorkaround'), value: stats.workaround, color: 'text-amber-600' },
+          { label: t('statResolved'), value: stats.geloest, color: 'text-init-green' },
         ].map(s => (
           <div key={s.label} className="bg-white px-4 py-3 text-center">
             <div className={`text-xl font-semibold ${s.color}`}>{s.value}</div>
@@ -356,25 +368,25 @@ export default function DashboardPage() {
       {/* Lösungszeit-Auswertung */}
       <div className="card mb-8">
         <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
-          <h2 className="text-base font-semibold text-hanse-navy">Lösungszeit</h2>
+          <h2 className="text-base font-semibold text-hanse-navy">{t('resolutionTime')}</h2>
           <span className="text-xs text-gray-400">
-            Basis: {resolutionStats.overall.count} gelöste Incident{resolutionStats.overall.count === 1 ? '' : 's'}
+            {t('resolutionBasis')}: {resolutionStats.overall.count}
           </span>
         </div>
 
         {resolutionStats.overall.count === 0 ? (
           <div className="text-sm text-gray-400 italic py-6 text-center">
-            Noch keine gelösten Incidents für die Auswertung vorhanden.
+            {t('noResolved')}
           </div>
         ) : (
           <>
             {/* Kennzahlen */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-200 rounded-xl overflow-hidden border border-gray-200 mb-5">
               {[
-                { label: 'Ø Durchschnitt', value: formatDurationShort(resolutionStats.overall.avg) },
-                { label: 'Median', value: formatDurationShort(resolutionStats.overall.med) },
-                { label: 'Schnellste', value: formatDurationShort(resolutionStats.overall.min) },
-                { label: 'Längste', value: formatDurationShort(resolutionStats.overall.max) },
+                { label: t('resAverage'), value: formatDurationShort(resolutionStats.overall.avg) },
+                { label: t('resMedian'), value: formatDurationShort(resolutionStats.overall.med) },
+                { label: t('resFastest'), value: formatDurationShort(resolutionStats.overall.min) },
+                { label: t('resLongest'), value: formatDurationShort(resolutionStats.overall.max) },
               ].map(s => (
                 <div key={s.label} className="bg-white px-4 py-3 text-center">
                   <div className="text-lg font-semibold text-hanse-navy">{s.value}</div>
@@ -387,7 +399,7 @@ export default function DashboardPage() {
               {/* Nach Priorität */}
               {resolutionStats.byPrio.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-semibold tracking-wide text-gray-500 uppercase mb-2">Nach Priorität</h3>
+                  <h3 className="text-xs font-semibold tracking-wide text-gray-500 uppercase mb-2">{t('byPriority')}</h3>
                   <div className="space-y-1.5">
                     {resolutionStats.byPrio.map(p => {
                       const cls: Record<string, string> = {
@@ -399,10 +411,15 @@ export default function DashboardPage() {
                       return (
                         <div key={p.priority} className="flex items-center gap-3 text-sm">
                           <div className={`w-1.5 h-1.5 rounded-full ${cls[p.priority] || 'bg-gray-400'}`} />
-                          <span className="text-hanse-navy w-20 capitalize">{p.priority}</span>
-                          <span className="text-xs text-gray-400 w-16">{p.count} Stk.</span>
+                          <span className="text-hanse-navy w-20 capitalize">{
+                            p.priority === 'kritisch' ? t('prioCritical') :
+                            p.priority === 'hoch' ? t('prioHigh') :
+                            p.priority === 'mittel' ? t('prioMedium') :
+                            p.priority === 'niedrig' ? t('prioLow') : p.priority
+                          }</span>
+                          <span className="text-xs text-gray-400 w-16">{p.count} {t('piecesShort')}</span>
                           <span className="text-gray-600 flex-1">Ø {formatDurationShort(p.avg)}</span>
-                          <span className="text-gray-400 text-xs">Med. {formatDurationShort(p.med)}</span>
+                          <span className="text-gray-400 text-xs">{t('medianShort')} {formatDurationShort(p.med)}</span>
                         </div>
                       );
                     })}
@@ -412,7 +429,7 @@ export default function DashboardPage() {
 
               {/* Trend letzte 6 Monate */}
               <div>
-                <h3 className="text-xs font-semibold tracking-wide text-gray-500 uppercase mb-2">Trend (Ø pro Monat)</h3>
+                <h3 className="text-xs font-semibold tracking-wide text-gray-500 uppercase mb-2">{t('trend6m')}</h3>
                 {(() => {
                   const maxAvg = Math.max(...resolutionStats.months.map(m => m.avg), 1);
                   return (
@@ -442,17 +459,22 @@ export default function DashboardPage() {
 
       {/* Filter */}
       <div className="flex gap-2 mb-6 flex-wrap">
-        {['all', 'offen', 'in Prüfung', 'Workaround', 'gelöst'].map(f => (
+        {[
+          { key: 'all', label: t('filterAll') },
+          { key: 'offen', label: t('filterOpen') },
+          { key: 'Workaround', label: t('filterWorkaround') },
+          { key: 'gelöst', label: t('filterResolved') },
+        ].map(f => (
           <button
-            key={f}
-            onClick={() => setFilter(f)}
+            key={f.key}
+            onClick={() => setFilter(f.key)}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-              filter === f
+              filter === f.key
                 ? 'bg-init-green text-white shadow-sm'
                 : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
             }`}
           >
-            {f === 'all' ? 'Alle' : f}
+            {f.label}
           </button>
         ))}
       </div>
@@ -461,13 +483,13 @@ export default function DashboardPage() {
       {loading ? (
         <div className="text-center py-16 text-gray-400">
           <div className="inline-block w-8 h-8 border-2 border-init-green/30 border-t-init-green rounded-full animate-spin mb-3" />
-          <div>Lade Incidents...</div>
+          <div>{t('loadIncidents')}</div>
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-gray-400 text-lg mb-2">Keine Incidents gefunden</div>
+          <div className="text-gray-400 text-lg mb-2">{t('noIncidents')}</div>
           <a href="/incidents/new" className="btn-primary inline-block mt-2">
-            Erstes Incident anlegen
+            {t('firstIncident')}
           </a>
         </div>
       ) : (
@@ -484,12 +506,12 @@ export default function DashboardPage() {
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-hanse-navy truncate">{incident.title}</div>
                   <div className="text-xs text-gray-500 mt-0.5 truncate">
-                    {systems.join(', ')} · {formatDate(incident.start_time)}
+                    {systems.join(', ')} · {formatDate(incident.start_time, lang)}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {incident.is_warning && (
-                    <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded">Einschr.</span>
+                    <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded">{t('limitationShort')}</span>
                   )}
                   <StatusBadge status={incident.status} />
                 </div>

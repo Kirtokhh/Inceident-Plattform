@@ -45,11 +45,6 @@ export async function POST(
       "UPDATE incident SET status = 'Workaround', workaround_description = $1, updated_at = NOW() WHERE id = $2",
       [body.message, params.id]
     );
-  } else if (body.update_type === 'Zwischenupdate') {
-    await pool.query(
-      "UPDATE incident SET status = 'in Prüfung', updated_at = NOW() WHERE id = $1",
-      [params.id]
-    );
   } else if (body.update_type === 'Abschluss/RCA') {
     await pool.query(
       "UPDATE incident SET status = 'gelöst', root_cause = $1, resolved_time = COALESCE(resolved_time, NOW()), updated_at = NOW() WHERE id = $2",

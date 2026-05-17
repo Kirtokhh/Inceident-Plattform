@@ -54,7 +54,7 @@ async function initializeSchema() {
         is_warning BOOLEAN DEFAULT FALSE,
         priority TEXT NOT NULL CHECK(priority IN ('kritisch', 'hoch', 'mittel', 'niedrig')),
         status TEXT NOT NULL DEFAULT 'offen' CHECK(status IN (
-          'offen', 'in Prüfung', 'Workaround', 'gelöst'
+          'offen', 'Workaround', 'gelöst'
         )),
         start_time TIMESTAMPTZ NOT NULL,
         resolved_time TIMESTAMPTZ,
