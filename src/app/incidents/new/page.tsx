@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { KVP, Priority, AFFECTED_SYSTEMS, AFFECTED_PROCESSES } from '@/lib/types';
+import { useAdminAuth } from '@/lib/admin-auth-context';
 
 const PRIORITIES: Priority[] = ['kritisch', 'hoch', 'mittel', 'niedrig'];
 
 export default function NewIncidentPage() {
   const router = useRouter();
+  const { admin, loading: authLoading } = useAdminAuth();
   const [kvps, setKvps] = useState<KVP[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -22,8 +24,24 @@ export default function NewIncidentPage() {
   });
 
   useEffect(() => {
-    fetch('/api/kvps').then(r => r.json()).then(setKvps);
-  }, []);
+    if (!authLoading && !admin) {
+      window.location.href = '/';
+    }
+  }, [admin, authLoading]);
+
+  useEffect(() => {
+    if (admin) {
+      fetch('/api/kvps').then(r => r.json()).then(setKvps);
+    }
+  }, [admin]);
+
+  if (authLoading || !admin) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="inline-block w-8 h-8 border-2 border-init-green/30 border-t-init-green rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   const toggleSystem = (system: string) => {
     setForm(prev => ({
@@ -81,14 +99,20 @@ export default function NewIncidentPage() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Neues Incident anlegen</h1>
-        <p className="text-slate-400">Störung erfassen → Betroffene Systeme/Prozesse auswählen → KVPs benachrichtigen</p>
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-1 h-8 bg-init-green rounded-full" />
+          <h1 className="text-2xl font-bold text-hanse-navy">Neues Incident anlegen</h1>
+        </div>
+        <p className="text-gray-500 ml-3">Störung erfassen → Betroffene Systeme/Prozesse auswählen → KVPs benachrichtigen</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Titel */}
         <div className="card">
-          <h2 className="text-lg font-semibold text-white mb-4">Störungsinformationen</h2>
+          <h2 className="text-base font-semibold text-hanse-navy mb-4 flex items-center gap-2">
+            <span className="w-6 h-6 bg-init-green/10 text-init-green rounded-lg flex items-center justify-center text-xs font-bold">1</span>
+            Störungsinformationen
+          </h2>
           <div className="space-y-4">
             <div>
               <label className="label">Titel *</label>
@@ -143,66 +167,72 @@ export default function NewIncidentPage() {
 
         {/* Betroffene Systeme */}
         <div className="card">
-          <h2 className="text-lg font-semibold text-white mb-4">Betroffene Systeme *</h2>
-          <div className="space-y-3">
+          <h2 className="text-base font-semibold text-hanse-navy mb-4 flex items-center gap-2">
+            <span className="w-6 h-6 bg-init-green/10 text-init-green rounded-lg flex items-center justify-center text-xs font-bold">2</span>
+            Betroffene Systeme *
+          </h2>
+          <div className="space-y-2">
             {AFFECTED_SYSTEMS.map(system => (
               <label
                 key={system}
-                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200 ${
                   form.affected_systems.includes(system)
-                    ? 'border-blue-500 bg-blue-500/10'
-                    : 'border-slate-700 hover:border-slate-500'
+                    ? 'border-init-green bg-init-green/5 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 <input
                   type="checkbox"
                   checked={form.affected_systems.includes(system)}
                   onChange={() => toggleSystem(system)}
-                  className="rounded border-slate-600 w-5 h-5"
+                  className="rounded w-5 h-5"
                 />
-                <span className="text-white font-medium">{system}</span>
+                <span className="text-hanse-navy font-medium">{system}</span>
               </label>
             ))}
           </div>
 
           {/* Warning Checkbox */}
-          <div className="mt-4 pt-4 border-t border-slate-700">
-            <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200 ${
               form.is_warning
-                ? 'border-yellow-500 bg-yellow-500/10'
-                : 'border-slate-700 hover:border-slate-500'
+                ? 'border-brand-gold bg-brand-gold-light shadow-sm'
+                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
             }`}>
               <input
                 type="checkbox"
                 checked={form.is_warning}
                 onChange={e => setForm({ ...form, is_warning: e.target.checked })}
-                className="rounded border-slate-600 w-5 h-5"
+                className="rounded w-5 h-5"
               />
-              <span className="text-yellow-300 font-medium">⚠️ Warning – Eingeschränkte Funktionalität (kein Totalausfall)</span>
+              <span className="text-amber-700 font-medium">⚠️ Warning – Eingeschränkte Funktionalität (kein Totalausfall)</span>
             </label>
           </div>
         </div>
 
         {/* Betroffene Prozesse */}
         <div className="card">
-          <h2 className="text-lg font-semibold text-white mb-4">Betroffene Prozesse *</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <h2 className="text-base font-semibold text-hanse-navy mb-4 flex items-center gap-2">
+            <span className="w-6 h-6 bg-init-green/10 text-init-green rounded-lg flex items-center justify-center text-xs font-bold">3</span>
+            Betroffene Prozesse *
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {AFFECTED_PROCESSES.map(process => (
               <label
                 key={process}
-                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200 ${
                   form.affected_processes.includes(process)
-                    ? 'border-red-500 bg-red-500/10'
-                    : 'border-slate-700 hover:border-slate-500'
+                    ? 'border-brand-red bg-brand-red-light shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 <input
                   type="checkbox"
                   checked={form.affected_processes.includes(process)}
                   onChange={() => toggleProcess(process)}
-                  className="rounded border-slate-600 w-5 h-5"
+                  className="rounded w-5 h-5"
                 />
-                <span className="text-slate-200 text-sm">{process}</span>
+                <span className="text-gray-700 text-sm">{process}</span>
               </label>
             ))}
           </div>
@@ -210,29 +240,32 @@ export default function NewIncidentPage() {
 
         {/* KVP Auswahl */}
         <div className="card">
-          <h2 className="text-lg font-semibold text-white mb-4">Betroffene KVP / Verkehrsunternehmen</h2>
-          <p className="text-sm text-slate-400 mb-4">
+          <h2 className="text-base font-semibold text-hanse-navy mb-2 flex items-center gap-2">
+            <span className="w-6 h-6 bg-init-green/10 text-init-green rounded-lg flex items-center justify-center text-xs font-bold">4</span>
+            Betroffene KVP / Verkehrsunternehmen
+          </h2>
+          <p className="text-sm text-gray-500 mb-4 ml-8">
             Wählen Sie die betroffenen KVPs aus. Diese werden per E-Mail benachrichtigt und sehen das Incident auf ihrer Statusseite.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {kvps.map(kvp => (
               <label
                 key={kvp.id}
-                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200 ${
                   form.kvp_ids.includes(kvp.id)
-                    ? 'border-blue-500 bg-blue-500/10'
-                    : 'border-slate-700 hover:border-slate-500'
+                    ? 'border-hanse-navy bg-blue-50 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 <input
                   type="checkbox"
                   checked={form.kvp_ids.includes(kvp.id)}
                   onChange={() => toggleKvp(kvp.id)}
-                  className="rounded border-slate-600"
+                  className="rounded"
                 />
                 <div>
-                  <div className="font-medium text-white">{kvp.short_name}</div>
-                  <div className="text-xs text-slate-400">{kvp.name}</div>
+                  <div className="font-medium text-hanse-navy">{kvp.short_name}</div>
+                  <div className="text-xs text-gray-500">{kvp.name}</div>
                 </div>
               </label>
             ))}
@@ -240,7 +273,7 @@ export default function NewIncidentPage() {
         </div>
 
         {/* Submit */}
-        <div className="flex justify-end gap-4">
+        <div className="flex justify-end gap-3">
           <a href="/" className="btn-secondary">Abbrechen</a>
           <button type="submit" className="btn-primary" disabled={submitting}>
             {submitting ? 'Wird erstellt...' : 'Incident anlegen & Kunden benachrichtigen'}

@@ -9,6 +9,7 @@
     "db:init": "node scripts/init-db.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "next": "^14.2.0",
     "nodemailer": "^6.9.0",
     "pg": "^8.13.0",
@@ -17,9 +18,10 @@
     "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "@types/pg": "^8.11.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.0.0",
     "@types/nodemailer": "^6.4.0",
+    "@types/pg": "^8.11.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@types/uuid": "^9.0.0",

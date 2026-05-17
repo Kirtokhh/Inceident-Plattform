@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AdminAuthProvider } from '@/lib/admin-auth-context';
+import NavBar from '@/components/NavBar';
 
 export const metadata: Metadata = {
-  title: 'TransitIncidentHub',
+  title: 'IncidentHub',
   description: 'Incident-Management für den ÖPNV',
 };
 
@@ -14,32 +16,20 @@ export default function RootLayout({
   return (
     <html lang="de">
       <body className="min-h-screen">
-        <nav className="bg-slate-800 border-b border-slate-700 sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <a href="/" className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                  TIH
-                </div>
-                <span className="text-xl font-bold text-white">TransitIncidentHub</span>
-              </a>
-              <div className="flex items-center gap-6">
-                <a href="/" className="text-slate-300 hover:text-white transition-colors text-sm font-medium">
-                  Dashboard
-                </a>
-                <a href="/status" className="text-slate-300 hover:text-white transition-colors text-sm font-medium">
-                  Kunden-Status
-                </a>
-                <a href="/incidents/new" className="btn-primary text-sm">
-                  + Neues Incident
-                </a>
-              </div>
+        <AdminAuthProvider>
+          {/* Green Top Bar */}
+          <div className="h-1 bg-init-green" />
+          <NavBar />
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {children}
+          </main>
+          {/* Footer */}
+          <footer className="border-t border-gray-200 bg-white mt-12">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <p className="text-xs text-gray-400">© 2026 IncidentHub</p>
             </div>
-          </div>
-        </nav>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {children}
-        </main>
+          </footer>
+        </AdminAuthProvider>
       </body>
     </html>
   );

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
-import { v4 as uuidv4 } from 'uuid';
 import { CreateIncidentRequest, Incident, KVP } from '@/lib/types';
 import { determineRecipients } from '@/lib/recipients';
 import { generateEmailSubject, generateEmailBody } from '@/lib/email-templates';
@@ -41,7 +40,9 @@ export async function POST(req: NextRequest) {
   }
 
   const pool = await getPool();
-  const id = `INC-${Date.now().toString(36).toUpperCase()}-${uuidv4().slice(0, 4).toUpperCase()}`;
+  const seqResult = await pool.query("SELECT nextval('incident_seq') AS num");
+  const num = String(seqResult.rows[0].num).padStart(3, '0');
+  const id = `INC-${num}`;
 
   await pool.query(
     `INSERT INTO incident (id, title, description, affected_systems, affected_processes, is_warning, priority, status, start_time)

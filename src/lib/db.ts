@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import bcrypt from 'bcryptjs';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/incident_hub',
@@ -19,6 +20,8 @@ async function initializeSchema() {
   const client = await pool.connect();
   try {
     await client.query(`
+      CREATE SEQUENCE IF NOT EXISTS incident_seq START 1;
+
       CREATE TABLE IF NOT EXISTS kvp (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
@@ -98,6 +101,15 @@ async function initializeSchema() {
         always_notify BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS admin_user (
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        session_token TEXT UNIQUE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
     `);
 
     // Seed-Daten nur wenn Tabellen leer
@@ -122,6 +134,13 @@ async function initializeSchema() {
           (NULL, NULL, 2, TRUE),
           (NULL, 'kritisch', 3, FALSE)
       `);
+
+      // Seed admin users
+      const adminHash = await bcrypt.hash('admin123', 10);
+      await client.query(
+        `INSERT INTO admin_user (username, password_hash, display_name) VALUES ($1, $2, $3)`,
+        ['admin', adminHash, 'Administrator']
+      );
     }
   } finally {
     client.release();

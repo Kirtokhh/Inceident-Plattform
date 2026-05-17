@@ -36,20 +36,14 @@ function formatDate(iso: string) {
   });
 }
 
-function StatusIcon({ status, isWarning }: { status: string; isWarning: boolean }) {
-  if (status === 'gelöst') return <span className="text-green-400 text-xl">✅</span>;
-  if (isWarning) return <span className="text-yellow-400 text-xl">⚠️</span>;
-  return <span className="text-red-400 text-xl">🔴</span>;
-}
-
 function PriorityLabel({ priority }: { priority: string }) {
   const colors: Record<string, string> = {
-    kritisch: 'text-red-400',
-    hoch: 'text-orange-400',
-    mittel: 'text-yellow-400',
-    niedrig: 'text-green-400',
+    kritisch: 'text-brand-red',
+    hoch: 'text-orange-600',
+    mittel: 'text-amber-600',
+    niedrig: 'text-init-green',
   };
-  return <span className={`text-sm font-medium ${colors[priority] || 'text-slate-400'}`}>{priority.toUpperCase()}</span>;
+  return <span className={`text-xs font-semibold ${colors[priority] || 'text-gray-500'}`}>{priority.toUpperCase()}</span>;
 }
 
 export default function StatusPage() {
@@ -59,9 +53,8 @@ export default function StatusPage() {
   const [incidents, setIncidents] = useState<StatusIncident[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [selectedIncident, setSelectedIncident] = useState<StatusIncident | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
-  // Check if there's a saved token in sessionStorage
   useEffect(() => {
     const savedToken = sessionStorage.getItem('kvp_access_token');
     if (savedToken) {
@@ -108,47 +101,51 @@ export default function StatusPage() {
     setKvp(null);
     setIncidents([]);
     setToken('');
-    setSelectedIncident(null);
+    setExpandedId(null);
     sessionStorage.removeItem('kvp_access_token');
   };
 
-  // Login Screen
+  // ─── Login Screen ───
   if (!authenticated) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center">
-        <div className="card max-w-md w-full">
-          <div className="text-center mb-6">
-            <div className="text-4xl mb-3">🚇</div>
-            <h1 className="text-2xl font-bold text-white">TransitIncidentHub</h1>
-            <p className="text-slate-400 mt-2">Kunden-Statusportal</p>
-            <p className="text-sm text-slate-500 mt-1">Bitte geben Sie Ihren Zugangstoken ein</p>
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <div className="w-14 h-14 bg-init-green/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <svg className="w-7 h-7 text-init-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-hanse-navy">IncidentHub</h1>
+            <p className="text-gray-500 mt-1 text-sm">Kunden-Statusportal</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="label">Access-Token</label>
-              <input
-                type="password"
-                className="input-field"
-                placeholder="Ihr Zugangstoken eingeben..."
-                value={token}
-                onChange={e => setToken(e.target.value)}
-                required
-                autoFocus
-              />
-            </div>
-            {error && (
-              <div className="text-red-400 text-sm bg-red-900/20 border border-red-700 rounded-lg p-3">
-                {error}
+          <div className="card">
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="label">Access-Token</label>
+                <input
+                  type="password"
+                  className="input-field"
+                  placeholder="Ihr Zugangstoken eingeben..."
+                  value={token}
+                  onChange={e => setToken(e.target.value)}
+                  required
+                  autoFocus
+                />
               </div>
-            )}
-            <button type="submit" className="btn-primary w-full" disabled={loading}>
-              {loading ? 'Prüfe...' : 'Anmelden'}
-            </button>
-          </form>
-
-          <p className="text-xs text-slate-600 text-center mt-4">
-            Ihren Zugangstoken erhalten Sie von Ihrem HanseCom-Ansprechpartner.
+              {error && (
+                <div className="text-brand-red text-sm bg-red-50 border border-red-200 rounded-xl p-3">
+                  {error}
+                </div>
+              )}
+              <button type="submit" className="btn-primary w-full" disabled={loading}>
+                {loading ? 'Prüfe...' : 'Anmelden'}
+              </button>
+            </form>
+          </div>
+          <p className="text-xs text-gray-400 text-center mt-4">
+            Ihren Zugangstoken erhalten Sie von Ihrem Ansprechpartner.
           </p>
         </div>
       </div>
@@ -158,22 +155,25 @@ export default function StatusPage() {
   const activeIncidents = incidents.filter(i => i.status !== 'gelöst');
   const resolvedIncidents = incidents.filter(i => i.status === 'gelöst');
 
-  // Status Page
+  // ─── Status Page ───
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white">System-Status</h1>
-          <p className="text-slate-400">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-1 h-8 bg-init-green rounded-full" />
+            <h1 className="text-2xl font-bold text-hanse-navy">System-Status</h1>
+          </div>
+          <p className="text-gray-500 ml-3">
             {kvp?.name} ({kvp?.short_name})
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button onClick={() => loadStatus(token)} className="btn-secondary text-sm">
             🔄 Aktualisieren
           </button>
-          <button onClick={handleLogout} className="text-sm text-slate-400 hover:text-white">
+          <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-hanse-navy transition-colors px-3 py-2">
             Abmelden
           </button>
         </div>
@@ -181,26 +181,32 @@ export default function StatusPage() {
 
       {/* Overall Status Banner */}
       {activeIncidents.length === 0 ? (
-        <div className="card border-green-700/50 bg-green-900/10 mb-8">
-          <div className="flex items-center gap-3">
-            <span className="text-3xl">✅</span>
+        <div className="card border-l-4 border-l-init-green mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-init-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
             <div>
-              <h2 className="text-lg font-semibold text-green-300">Alle Systeme betriebsbereit</h2>
-              <p className="text-sm text-green-400/70">Aktuell liegen keine Störungen vor.</p>
+              <h2 className="text-lg font-semibold text-init-green">Alle Systeme betriebsbereit</h2>
+              <p className="text-sm text-gray-500">Aktuell liegen keine Störungen vor.</p>
             </div>
           </div>
         </div>
       ) : (
-        <div className="card border-red-700/50 bg-red-900/10 mb-8">
-          <div className="flex items-center gap-3">
-            <span className="text-3xl">⚠️</span>
+        <div className="card border-l-4 border-l-brand-red mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-brand-red" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
             <div>
-              <h2 className="text-lg font-semibold text-red-300">
+              <h2 className="text-lg font-semibold text-brand-red">
                 {activeIncidents.length} aktive Störung{activeIncidents.length > 1 ? 'en' : ''}
               </h2>
-              <p className="text-sm text-red-400/70">
-                Bitte beachten Sie die folgenden Einschränkungen.
-              </p>
+              <p className="text-sm text-gray-500">Bitte beachten Sie die folgenden Einschränkungen.</p>
             </div>
           </div>
         </div>
@@ -209,64 +215,71 @@ export default function StatusPage() {
       {/* Active Incidents */}
       {activeIncidents.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-lg font-semibold text-white mb-4">Aktuelle Störungen</h2>
-          <div className="space-y-4">
+          <h2 className="text-base font-semibold text-hanse-navy mb-4">Aktuelle Störungen</h2>
+          <div className="space-y-3">
             {activeIncidents.map(incident => (
               <div
                 key={incident.id}
-                className="card cursor-pointer hover:border-slate-500 transition-colors"
-                onClick={() => setSelectedIncident(selectedIncident?.id === incident.id ? null : incident)}
+                className="card cursor-pointer hover:shadow-card-hover transition-all duration-200"
+                onClick={() => setExpandedId(expandedId === incident.id ? null : incident.id)}
               >
                 <div className="flex items-start gap-3">
-                  <StatusIcon status={incident.status} isWarning={incident.is_warning} />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-white">{incident.title}</h3>
-                      <PriorityLabel priority={incident.priority} />
+                  {/* Status Indicator */}
+                  <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${
+                    incident.is_warning ? 'bg-brand-gold' : 'bg-brand-red'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-semibold text-hanse-navy">{incident.title}</h3>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <PriorityLabel priority={incident.priority} />
+                        <svg className={`w-4 h-4 text-gray-400 transition-transform ${expandedId === incident.id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
                     </div>
 
-                    {/* Affected Systems & Processes */}
-                    <div className="flex flex-wrap gap-2 mt-2">
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
                       {(incident.affected_systems || []).map(s => (
-                        <span key={s} className="text-xs bg-blue-900/30 text-blue-300 border border-blue-800 px-2 py-0.5 rounded">
+                        <span key={s} className="text-xs bg-init-green/10 text-init-green px-2 py-0.5 rounded-lg font-medium">
                           {s}
                         </span>
                       ))}
-                    </div>
-                    <div className="flex flex-wrap gap-2 mt-1">
                       {(incident.affected_processes || []).map(p => (
-                        <span key={p} className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded">
+                        <span key={p} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-lg">
                           {p}
                         </span>
                       ))}
                     </div>
 
-                    <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                      <span>Status: <span className="text-slate-300">{incident.status}</span></span>
-                      <span>Seit: {formatDate(incident.start_time)}</span>
+                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                      <span className="text-gray-500 font-medium">{incident.status}</span>
+                      <span>•</span>
+                      <span>Seit {formatDate(incident.start_time)}</span>
                     </div>
 
                     {/* Expanded Detail */}
-                    {selectedIncident?.id === incident.id && (
-                      <div className="mt-4 pt-4 border-t border-slate-700 space-y-3">
+                    {expandedId === incident.id && (
+                      <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
                         {incident.description && (
                           <div>
-                            <div className="text-xs text-slate-500 uppercase mb-1">Beschreibung</div>
-                            <p className="text-sm text-slate-300">{incident.description}</p>
+                            <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Beschreibung</div>
+                            <p className="text-sm text-gray-700 leading-relaxed">{incident.description}</p>
                           </div>
                         )}
                         {incident.workaround_description && (
-                          <div className="bg-yellow-900/10 border border-yellow-700/50 rounded-lg p-3">
-                            <div className="text-xs text-yellow-500 uppercase mb-1">🔧 Workaround</div>
-                            <p className="text-sm text-slate-300">{incident.workaround_description}</p>
+                          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                            <div className="text-xs text-amber-700 uppercase tracking-wider font-semibold mb-1">🔧 Workaround</div>
+                            <p className="text-sm text-gray-700">{incident.workaround_description}</p>
                           </div>
                         )}
                         {incident.latest_update && (
-                          <div className="bg-slate-800/50 rounded-lg p-3">
-                            <div className="text-xs text-slate-500 uppercase mb-1">
+                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+                            <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">
                               Letztes Update ({incident.latest_update.update_type}) – {formatDate(incident.latest_update.created_at)}
                             </div>
-                            <p className="text-sm text-slate-300">{incident.latest_update.message}</p>
+                            <p className="text-sm text-gray-700">{incident.latest_update.message}</p>
                           </div>
                         )}
                       </div>
@@ -282,16 +295,17 @@ export default function StatusPage() {
       {/* Resolved Incidents */}
       {resolvedIncidents.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-white mb-4">Kürzlich gelöste Störungen</h2>
-          <div className="space-y-3">
+          <h2 className="text-base font-semibold text-hanse-navy mb-4">Kürzlich gelöste Störungen</h2>
+          <div className="space-y-2">
             {resolvedIncidents.slice(0, 10).map(incident => (
-              <div key={incident.id} className="card opacity-70">
+              <div key={incident.id} className="card py-4 opacity-80">
                 <div className="flex items-center gap-3">
-                  <span className="text-green-400">✅</span>
-                  <div className="flex-1">
-                    <h3 className="font-medium text-white">{incident.title}</h3>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                  <div className="w-3 h-3 rounded-full bg-init-green flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-hanse-navy text-sm">{incident.title}</h3>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
                       <span>{(incident.affected_systems || []).join(', ')}</span>
+                      <span>•</span>
                       <span>Gelöst: {incident.resolved_time ? formatDate(incident.resolved_time) : formatDate(incident.updated_at)}</span>
                     </div>
                   </div>

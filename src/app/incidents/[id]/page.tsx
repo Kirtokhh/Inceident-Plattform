@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Incident, KVP, IncidentUpdate, EmailLog, EmailType } from '@/lib/types';
+import { useAdminAuth } from '@/lib/admin-auth-context';
 
 const EMAIL_TYPES: EmailType[] = ['Erstmeldung', 'Zwischenupdate', 'Workaround', 'Entwarnung', 'Abschluss/RCA'];
 
@@ -42,6 +43,7 @@ interface IncidentDetail extends Incident {
 export default function IncidentDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const { admin, loading: authLoading } = useAdminAuth();
   const [incident, setIncident] = useState<IncidentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'updates' | 'emails' | 'details'>('updates');
@@ -52,20 +54,35 @@ export default function IncidentDetailPage() {
     send_email: true,
   });
   const [submitting, setSubmitting] = useState(false);
-  const [emailPreview, setEmailPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authLoading && !admin) {
+      window.location.href = '/';
+    }
+  }, [admin, authLoading]);
 
   const loadIncident = () => {
-    fetch(`/api/incidents/${id}`)
-      .then(r => r.json())
-      .then(data => {
-        setIncident(data);
-        setLoading(false);
-      });
+    if (admin) {
+      fetch(`/api/incidents/${id}`)
+        .then(r => r.json())
+        .then(data => {
+          setIncident(data);
+          setLoading(false);
+        });
+    }
   };
 
   useEffect(() => {
-    loadIncident();
-  }, [id]);
+    if (admin) loadIncident();
+  }, [id, admin]);
+
+  if (authLoading || !admin) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="inline-block w-8 h-8 border-2 border-init-green/30 border-t-init-green rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   const handleSubmitUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,32 +111,41 @@ export default function IncidentDetailPage() {
   };
 
   if (loading) {
-    return <div className="text-center py-12 text-slate-400">Lade Incident...</div>;
+    return (
+      <div className="text-center py-16 text-gray-400">
+        <div className="inline-block w-8 h-8 border-2 border-init-green/30 border-t-init-green rounded-full animate-spin mb-3" />
+        <div>Lade Incident...</div>
+      </div>
+    );
   }
 
   if (!incident) {
-    return <div className="text-center py-12 text-red-400">Incident nicht gefunden</div>;
+    return <div className="text-center py-16 text-brand-red font-medium">Incident nicht gefunden</div>;
   }
 
   return (
     <div>
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center gap-2 mb-3">
-          <a href="/" className="text-slate-400 hover:text-white text-sm">← Zurück zum Dashboard</a>
-        </div>
+        <a href="/" className="inline-flex items-center gap-1 text-gray-500 hover:text-init-green text-sm mb-4 transition-colors">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          Zurück zum Dashboard
+        </a>
         <div className="flex items-start justify-between">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-sm font-mono text-slate-500">{incident.id}</span>
+            <div className="flex items-center gap-2.5 mb-2">
+              <span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{incident.id}</span>
               <PriorityBadge priority={incident.priority} />
               <StatusBadge status={incident.status} />
+              {incident.is_warning && (
+                <span className="badge bg-amber-50 text-amber-700 border border-amber-200">⚠ WARNING</span>
+              )}
             </div>
-            <h1 className="text-3xl font-bold text-white">{incident.title}</h1>
+            <h1 className="text-2xl font-bold text-hanse-navy">{incident.title}</h1>
           </div>
           <button
             onClick={() => setShowUpdateForm(!showUpdateForm)}
-            className="btn-primary"
+            className="btn-primary flex-shrink-0"
           >
             + Update erstellen
           </button>
@@ -128,8 +154,8 @@ export default function IncidentDetailPage() {
 
       {/* Update Form */}
       {showUpdateForm && (
-        <div className="card mb-6 border-blue-500/50">
-          <h2 className="text-lg font-semibold text-white mb-4">Neues Update erstellen</h2>
+        <div className="card mb-6 border-init-green/30 border-2">
+          <h2 className="text-base font-semibold text-hanse-navy mb-4">Neues Update erstellen</h2>
           <form onSubmit={handleSubmitUpdate} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -150,9 +176,9 @@ export default function IncidentDetailPage() {
                     type="checkbox"
                     checked={updateForm.send_email}
                     onChange={e => setUpdateForm({ ...updateForm, send_email: e.target.checked })}
-                    className="rounded border-slate-600 w-5 h-5"
+                    className="rounded w-5 h-5"
                   />
-                  <span className="text-slate-300">E-Mail automatisch senden</span>
+                  <span className="text-gray-600 text-sm">E-Mail automatisch senden</span>
                 </label>
               </div>
             </div>
@@ -182,26 +208,28 @@ export default function IncidentDetailPage() {
         </div>
       )}
 
-      {/* Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      {/* Info Cards – Systeme/Prozesse */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div className="card">
-          <div className="text-xs text-slate-500 uppercase mb-2">Betroffene Systeme</div>
+          <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-3">Betroffene Systeme</div>
           <div className="flex flex-wrap gap-2">
             {(Array.isArray(incident.affected_systems) ? incident.affected_systems : []).map(s => (
-              <span key={s} className="text-sm bg-blue-900/30 text-blue-300 border border-blue-700 px-2 py-1 rounded">
+              <span key={s} className="text-sm bg-init-green/10 text-init-green border border-init-green/20 px-3 py-1 rounded-lg font-medium">
                 {s}
               </span>
             ))}
           </div>
           {incident.is_warning && (
-            <div className="mt-2 text-yellow-400 text-sm">⚠️ Warning – Eingeschränkte Funktionalität</div>
+            <div className="mt-3 text-amber-700 text-sm bg-amber-50 rounded-lg px-3 py-2 border border-amber-200">
+              ⚠️ Warning – Eingeschränkte Funktionalität
+            </div>
           )}
         </div>
         <div className="card">
-          <div className="text-xs text-slate-500 uppercase mb-2">Betroffene Prozesse</div>
+          <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-3">Betroffene Prozesse</div>
           <div className="flex flex-wrap gap-2">
             {(Array.isArray(incident.affected_processes) ? incident.affected_processes : []).map(p => (
-              <span key={p} className="text-sm bg-red-900/30 text-red-300 border border-red-700 px-2 py-1 rounded">
+              <span key={p} className="text-sm bg-red-50 text-brand-red border border-red-200 px-3 py-1 rounded-lg font-medium">
                 {p}
               </span>
             ))}
@@ -209,22 +237,23 @@ export default function IncidentDetailPage() {
         </div>
       </div>
 
+      {/* Info Cards – Zeiten & KVPs */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="card">
-          <div className="text-xs text-slate-500 uppercase mb-1">Startzeit</div>
-          <div className="text-white font-medium">{formatDate(incident.start_time)}</div>
+          <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Startzeit</div>
+          <div className="text-hanse-navy font-medium">{formatDate(incident.start_time)}</div>
         </div>
         <div className="card">
-          <div className="text-xs text-slate-500 uppercase mb-1">Gelöst am</div>
-          <div className="text-white font-medium">
+          <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Gelöst am</div>
+          <div className="text-hanse-navy font-medium">
             {incident.resolved_time ? formatDate(incident.resolved_time) : '–'}
           </div>
         </div>
         <div className="card">
-          <div className="text-xs text-slate-500 uppercase mb-1">Betroffene KVPs</div>
+          <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Betroffene KVPs</div>
           <div className="flex flex-wrap gap-1">
             {incident.kvps.map(k => (
-              <span key={k.id} className="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded">
+              <span key={k.id} className="text-xs bg-blue-50 text-hanse-navy border border-blue-200 px-2 py-1 rounded-lg font-medium">
                 {k.short_name}
               </span>
             ))}
@@ -233,28 +262,28 @@ export default function IncidentDetailPage() {
       </div>
 
       {incident.description && (
-        <div className="card mb-6">
-          <div className="text-xs text-slate-500 uppercase mb-2">Beschreibung</div>
-          <p className="text-slate-300 whitespace-pre-wrap">{incident.description}</p>
+        <div className="card mb-4">
+          <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Beschreibung</div>
+          <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{incident.description}</p>
         </div>
       )}
 
       {incident.workaround_description && (
-        <div className="card mb-6 border-yellow-700/50">
-          <div className="text-xs text-yellow-500 uppercase mb-2">🔧 Workaround</div>
-          <p className="text-slate-300 whitespace-pre-wrap">{incident.workaround_description}</p>
+        <div className="card mb-4 border-l-4 border-l-brand-gold">
+          <div className="text-xs text-amber-700 uppercase tracking-wider font-semibold mb-2">🔧 Workaround</div>
+          <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{incident.workaround_description}</p>
         </div>
       )}
 
       {incident.root_cause && (
-        <div className="card mb-6 border-green-700/50">
-          <div className="text-xs text-green-500 uppercase mb-2">📋 Root Cause</div>
-          <p className="text-slate-300 whitespace-pre-wrap">{incident.root_cause}</p>
+        <div className="card mb-4 border-l-4 border-l-init-green">
+          <div className="text-xs text-init-green uppercase tracking-wider font-semibold mb-2">📋 Root Cause</div>
+          <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{incident.root_cause}</p>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 border-b border-slate-700">
+      <div className="flex gap-1 mb-4 border-b border-gray-200">
         {([
           ['updates', `Updates (${incident.updates.length})`],
           ['emails', `E-Mail-Versand (${incident.emailLogs.length})`],
@@ -264,8 +293,8 @@ export default function IncidentDetailPage() {
             onClick={() => setActiveTab(key)}
             className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
               activeTab === key
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-slate-400 hover:text-white'
+                ? 'border-init-green text-init-green'
+                : 'border-transparent text-gray-500 hover:text-hanse-navy'
             }`}
           >
             {label}
@@ -277,12 +306,12 @@ export default function IncidentDetailPage() {
       {activeTab === 'updates' && (
         <div className="space-y-3">
           {incident.updates.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">Noch keine Updates</div>
+            <div className="text-center py-10 text-gray-400">Noch keine Updates</div>
           ) : (
             incident.updates.map(update => (
               <div key={update.id} className="card">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <span className={`badge ${
                       update.update_type === 'Erstmeldung' ? 'badge-offen' :
                       update.update_type === 'Zwischenupdate' ? 'badge-prüfung' :
@@ -292,11 +321,11 @@ export default function IncidentDetailPage() {
                     }`}>
                       {update.update_type}
                     </span>
-                    <span className="text-xs text-slate-500">von {update.created_by}</span>
+                    <span className="text-xs text-gray-400">von {update.created_by}</span>
                   </div>
-                  <span className="text-xs text-slate-500">{formatDate(update.created_at)}</span>
+                  <span className="text-xs text-gray-400">{formatDate(update.created_at)}</span>
                 </div>
-                <p className="text-slate-300 whitespace-pre-wrap">{update.message}</p>
+                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{update.message}</p>
               </div>
             ))
           )}
@@ -307,12 +336,12 @@ export default function IncidentDetailPage() {
       {activeTab === 'emails' && (
         <div className="space-y-3">
           {incident.emailLogs.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">Noch keine E-Mails gesendet</div>
+            <div className="text-center py-10 text-gray-400">Noch keine E-Mails gesendet</div>
           ) : (
             incident.emailLogs.map(log => (
               <div key={log.id} className="card">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <span className={`badge ${
                       log.status === 'gesendet' ? 'badge-gelöst' :
                       log.status === 'fehlgeschlagen' ? 'badge-offen' :
@@ -324,16 +353,16 @@ export default function IncidentDetailPage() {
                     </span>
                     <span className="badge badge-prüfung">{log.email_type}</span>
                   </div>
-                  <span className="text-xs text-slate-500">{formatDate(log.sent_at)}</span>
+                  <span className="text-xs text-gray-400">{formatDate(log.sent_at)}</span>
                 </div>
                 <div className="space-y-2 text-sm">
                   <div>
-                    <span className="text-slate-500">Betreff: </span>
-                    <span className="text-slate-300">{log.subject}</span>
+                    <span className="text-gray-500">Betreff: </span>
+                    <span className="text-gray-700 font-medium">{log.subject}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500">Empfänger: </span>
-                    <span className="text-slate-300">
+                    <span className="text-gray-500">Empfänger: </span>
+                    <span className="text-gray-700">
                       {(() => {
                         try {
                           return JSON.parse(log.recipients).join(', ');
@@ -344,15 +373,15 @@ export default function IncidentDetailPage() {
                     </span>
                   </div>
                   {log.error_message && (
-                    <div className="text-red-400 text-xs mt-2">
+                    <div className="text-brand-red text-xs mt-2 bg-red-50 p-2 rounded-lg">
                       Fehler: {log.error_message}
                     </div>
                   )}
                   <details className="mt-2">
-                    <summary className="text-slate-500 cursor-pointer hover:text-slate-300 text-xs">
+                    <summary className="text-gray-400 cursor-pointer hover:text-hanse-navy text-xs">
                       E-Mail-Inhalt anzeigen
                     </summary>
-                    <pre className="mt-2 p-3 bg-slate-900 rounded-lg text-xs text-slate-400 whitespace-pre-wrap overflow-auto max-h-64">
+                    <pre className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-600 whitespace-pre-wrap overflow-auto max-h-64">
                       {log.body}
                     </pre>
                   </details>
