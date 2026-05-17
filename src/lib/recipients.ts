@@ -30,7 +30,7 @@ export async function determineRecipients(
   );
 
   const stakeholderEmails = stakeholderResult.rows.map((s: { email: string }) => s.email);
-  const allEmails = [...new Set([...kvpEmails, ...stakeholderEmails])];
+  const allEmails = Array.from(new Set([...kvpEmails, ...stakeholderEmails]));
 
   return { kvpEmails, stakeholderEmails, allEmails };
 }

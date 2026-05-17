@@ -27,6 +27,9 @@ export default function RootLayout({
                 <a href="/" className="text-slate-300 hover:text-white transition-colors text-sm font-medium">
                   Dashboard
                 </a>
+                <a href="/status" className="text-slate-300 hover:text-white transition-colors text-sm font-medium">
+                  Kunden-Status
+                </a>
                 <a href="/incidents/new" className="btn-primary text-sm">
                   + Neues Incident
                 </a>

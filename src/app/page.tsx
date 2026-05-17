@@ -60,8 +60,8 @@ export default function DashboardPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Incident Dashboard</h1>
-        <p className="text-slate-400">Übersicht aller Störungen und deren Status</p>
+        <h1 className="text-3xl font-bold text-white mb-2">Admin Dashboard</h1>
+        <p className="text-slate-400">Incident-Verwaltung – Störungen erstellen und verwalten</p>
       </div>
 
       {/* Stats */}
@@ -121,39 +121,44 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(incident => (
-            <a
-              key={incident.id}
-              href={`/incidents/${incident.id}`}
-              className="card block hover:border-blue-500/50 transition-colors cursor-pointer"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-xs font-mono text-slate-500">{incident.id}</span>
-                    <PriorityBadge priority={incident.priority} />
-                    <StatusBadge status={incident.status} />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white truncate">{incident.title}</h3>
-                  <div className="flex items-center gap-4 mt-2 text-sm text-slate-400">
-                    <span>📱 {incident.affected_app}</span>
-                    <span>🎫 {incident.product}</span>
-                    <span>🔧 {incident.problem_type}</span>
-                    <span>🕐 {formatDate(incident.start_time)}</span>
-                  </div>
-                  {incident.kvps.length > 0 && (
+          {filtered.map(incident => {
+            const systems = Array.isArray(incident.affected_systems) ? incident.affected_systems : [];
+            const processes = Array.isArray(incident.affected_processes) ? incident.affected_processes : [];
+            return (
+              <a
+                key={incident.id}
+                href={`/incidents/${incident.id}`}
+                className="card block hover:border-blue-500/50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-xs font-mono text-slate-500">{incident.id}</span>
+                      <PriorityBadge priority={incident.priority} />
+                      <StatusBadge status={incident.status} />
+                      {incident.is_warning && (
+                        <span className="badge bg-yellow-900/50 text-yellow-300 border border-yellow-700">⚠️ WARNING</span>
+                      )}
+                    </div>
+                    <h3 className="text-lg font-semibold text-white truncate">{incident.title}</h3>
+                    <div className="flex items-center gap-4 mt-2 text-sm text-slate-400 flex-wrap">
+                      {systems.map(s => (
+                        <span key={s}>📱 {s}</span>
+                      ))}
+                      <span>🕐 {formatDate(incident.start_time)}</span>
+                    </div>
                     <div className="flex gap-2 mt-2 flex-wrap">
-                      {incident.kvps.map(k => (
-                        <span key={k.id} className="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded">
-                          {k.short_name}
+                      {processes.map(p => (
+                        <span key={p} className="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded">
+                          {p}
                         </span>
                       ))}
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-            </a>
-          ))}
+              </a>
+            );
+          })}
         </div>
       )}
     </div>

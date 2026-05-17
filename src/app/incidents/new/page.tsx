@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { KVP, Product, ProblemType, Priority } from '@/lib/types';
+import { KVP, Priority, AFFECTED_SYSTEMS, AFFECTED_PROCESSES } from '@/lib/types';
 
-const PRODUCTS: Product[] = ['Deutschlandticket', 'EinzelTicket', 'Zeitkarte', 'Abo', 'Sonstiges'];
-const PROBLEM_TYPES: ProblemType[] = ['Payment', 'Ticketanzeige', 'Login', 'Tarif', 'Backend', 'Reporting'];
 const PRIORITIES: Priority[] = ['kritisch', 'hoch', 'mittel', 'niedrig'];
-const APPS = ['MobilApp', 'WebPortal', 'Backend-API', 'Admin-Dashboard', 'Reporting-System', 'Payment-Gateway'];
 
 export default function NewIncidentPage() {
   const router = useRouter();
@@ -16,9 +13,9 @@ export default function NewIncidentPage() {
   const [form, setForm] = useState({
     title: '',
     description: '',
-    affected_app: '',
-    product: '' as Product | '',
-    problem_type: '' as ProblemType | '',
+    affected_systems: [] as string[],
+    affected_processes: [] as string[],
+    is_warning: false,
     priority: '' as Priority | '',
     start_time: new Date().toISOString().slice(0, 16),
     kvp_ids: [] as number[],
@@ -27,6 +24,24 @@ export default function NewIncidentPage() {
   useEffect(() => {
     fetch('/api/kvps').then(r => r.json()).then(setKvps);
   }, []);
+
+  const toggleSystem = (system: string) => {
+    setForm(prev => ({
+      ...prev,
+      affected_systems: prev.affected_systems.includes(system)
+        ? prev.affected_systems.filter(s => s !== system)
+        : [...prev.affected_systems, system],
+    }));
+  };
+
+  const toggleProcess = (process: string) => {
+    setForm(prev => ({
+      ...prev,
+      affected_processes: prev.affected_processes.includes(process)
+        ? prev.affected_processes.filter(p => p !== process)
+        : [...prev.affected_processes, process],
+    }));
+  };
 
   const toggleKvp = (id: number) => {
     setForm(prev => ({
@@ -39,7 +54,7 @@ export default function NewIncidentPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title || !form.affected_app || !form.product || !form.problem_type || !form.priority) {
+    if (!form.title || !form.affected_systems.length || !form.affected_processes.length || !form.priority) {
       alert('Bitte alle Pflichtfelder ausfüllen');
       return;
     }
@@ -67,7 +82,7 @@ export default function NewIncidentPage() {
     <div className="max-w-3xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">Neues Incident anlegen</h1>
-        <p className="text-slate-400">Störung erfassen → Impact bewerten → Kunden auswählen → E-Mail automatisch generieren</p>
+        <p className="text-slate-400">Störung erfassen → Betroffene Systeme/Prozesse auswählen → KVPs benachrichtigen</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -80,7 +95,7 @@ export default function NewIncidentPage() {
               <input
                 type="text"
                 className="input-field"
-                placeholder="z.B. Deutschlandticket - Zahlung fehlgeschlagen"
+                placeholder="z.B. Payment-System nicht erreichbar"
                 value={form.title}
                 onChange={e => setForm({ ...form, title: e.target.value })}
                 required
@@ -95,82 +110,101 @@ export default function NewIncidentPage() {
                 onChange={e => setForm({ ...form, description: e.target.value })}
               />
             </div>
-          </div>
-        </div>
-
-        {/* Betroffene App & Produkt */}
-        <div className="card">
-          <h2 className="text-lg font-semibold text-white mb-4">Betroffene Systeme</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="label">Betroffene App *</label>
-              <select
-                className="select-field"
-                value={form.affected_app}
-                onChange={e => setForm({ ...form, affected_app: e.target.value })}
-                required
-              >
-                <option value="">App auswählen...</option>
-                {APPS.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label">Produkt *</label>
-              <select
-                className="select-field"
-                value={form.product}
-                onChange={e => setForm({ ...form, product: e.target.value as Product })}
-                required
-              >
-                <option value="">Produkt auswählen...</option>
-                {PRODUCTS.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="label">Priorität *</label>
+                <select
+                  className="select-field"
+                  value={form.priority}
+                  onChange={e => setForm({ ...form, priority: e.target.value as Priority })}
+                  required
+                >
+                  <option value="">Priorität wählen...</option>
+                  {PRIORITIES.map(p => (
+                    <option key={p} value={p}>
+                      {p === 'kritisch' ? '🔴' : p === 'hoch' ? '🟠' : p === 'mittel' ? '🟡' : '🟢'} {p.charAt(0).toUpperCase() + p.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">Startzeit *</label>
+                <input
+                  type="datetime-local"
+                  className="input-field"
+                  value={form.start_time}
+                  onChange={e => setForm({ ...form, start_time: e.target.value })}
+                  required
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Problemtyp & Priorität */}
+        {/* Betroffene Systeme */}
         <div className="card">
-          <h2 className="text-lg font-semibold text-white mb-4">Klassifizierung</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="label">Problemtyp *</label>
-              <select
-                className="select-field"
-                value={form.problem_type}
-                onChange={e => setForm({ ...form, problem_type: e.target.value as ProblemType })}
-                required
+          <h2 className="text-lg font-semibold text-white mb-4">Betroffene Systeme *</h2>
+          <div className="space-y-3">
+            {AFFECTED_SYSTEMS.map(system => (
+              <label
+                key={system}
+                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  form.affected_systems.includes(system)
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-slate-700 hover:border-slate-500'
+                }`}
               >
-                <option value="">Typ auswählen...</option>
-                {PROBLEM_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label">Priorität *</label>
-              <select
-                className="select-field"
-                value={form.priority}
-                onChange={e => setForm({ ...form, priority: e.target.value as Priority })}
-                required
-              >
-                <option value="">Priorität wählen...</option>
-                {PRIORITIES.map(p => (
-                  <option key={p} value={p}>
-                    {p === 'kritisch' ? '🔴' : p === 'hoch' ? '🟠' : p === 'mittel' ? '🟡' : '🟢'} {p.charAt(0).toUpperCase() + p.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label">Startzeit *</label>
+                <input
+                  type="checkbox"
+                  checked={form.affected_systems.includes(system)}
+                  onChange={() => toggleSystem(system)}
+                  className="rounded border-slate-600 w-5 h-5"
+                />
+                <span className="text-white font-medium">{system}</span>
+              </label>
+            ))}
+          </div>
+
+          {/* Warning Checkbox */}
+          <div className="mt-4 pt-4 border-t border-slate-700">
+            <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+              form.is_warning
+                ? 'border-yellow-500 bg-yellow-500/10'
+                : 'border-slate-700 hover:border-slate-500'
+            }`}>
               <input
-                type="datetime-local"
-                className="input-field"
-                value={form.start_time}
-                onChange={e => setForm({ ...form, start_time: e.target.value })}
-                required
+                type="checkbox"
+                checked={form.is_warning}
+                onChange={e => setForm({ ...form, is_warning: e.target.checked })}
+                className="rounded border-slate-600 w-5 h-5"
               />
-            </div>
+              <span className="text-yellow-300 font-medium">⚠️ Warning – Eingeschränkte Funktionalität (kein Totalausfall)</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Betroffene Prozesse */}
+        <div className="card">
+          <h2 className="text-lg font-semibold text-white mb-4">Betroffene Prozesse *</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {AFFECTED_PROCESSES.map(process => (
+              <label
+                key={process}
+                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  form.affected_processes.includes(process)
+                    ? 'border-red-500 bg-red-500/10'
+                    : 'border-slate-700 hover:border-slate-500'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={form.affected_processes.includes(process)}
+                  onChange={() => toggleProcess(process)}
+                  className="rounded border-slate-600 w-5 h-5"
+                />
+                <span className="text-slate-200 text-sm">{process}</span>
+              </label>
+            ))}
           </div>
         </div>
 
@@ -178,7 +212,7 @@ export default function NewIncidentPage() {
         <div className="card">
           <h2 className="text-lg font-semibold text-white mb-4">Betroffene KVP / Verkehrsunternehmen</h2>
           <p className="text-sm text-slate-400 mb-4">
-            Wählen Sie die betroffenen Verkehrsunternehmen aus. Diese werden automatisch per E-Mail benachrichtigt.
+            Wählen Sie die betroffenen KVPs aus. Diese werden per E-Mail benachrichtigt und sehen das Incident auf ihrer Statusseite.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {kvps.map(kvp => (
@@ -199,7 +233,6 @@ export default function NewIncidentPage() {
                 <div>
                   <div className="font-medium text-white">{kvp.short_name}</div>
                   <div className="text-xs text-slate-400">{kvp.name}</div>
-                  {kvp.region && <div className="text-xs text-slate-500">{kvp.region}</div>}
                 </div>
               </label>
             ))}
@@ -210,7 +243,7 @@ export default function NewIncidentPage() {
         <div className="flex justify-end gap-4">
           <a href="/" className="btn-secondary">Abbrechen</a>
           <button type="submit" className="btn-primary" disabled={submitting}>
-            {submitting ? 'Wird erstellt...' : 'Incident anlegen & Erstmeldung senden'}
+            {submitting ? 'Wird erstellt...' : 'Incident anlegen & Kunden benachrichtigen'}
           </button>
         </div>
       </form>

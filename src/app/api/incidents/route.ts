@@ -20,7 +20,7 @@ export async function GET() {
   `);
 
   const result = [];
-  for (const inc of incidentResult.rows as Incident[]) {
+  for (const inc of incidentResult.rows) {
     const kvpResult = await pool.query(
       `SELECT k.* FROM kvp k
        JOIN incident_kvp ik ON ik.kvp_id = k.id
@@ -36,7 +36,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const body: CreateIncidentRequest = await req.json();
 
-  if (!body.title || !body.affected_app || !body.product || !body.problem_type || !body.priority || !body.start_time) {
+  if (!body.title || !body.affected_systems?.length || !body.affected_processes?.length || !body.priority || !body.start_time) {
     return NextResponse.json({ error: 'Pflichtfelder fehlen' }, { status: 400 });
   }
 
@@ -44,9 +44,9 @@ export async function POST(req: NextRequest) {
   const id = `INC-${Date.now().toString(36).toUpperCase()}-${uuidv4().slice(0, 4).toUpperCase()}`;
 
   await pool.query(
-    `INSERT INTO incident (id, title, description, affected_app, product, problem_type, priority, status, start_time)
+    `INSERT INTO incident (id, title, description, affected_systems, affected_processes, is_warning, priority, status, start_time)
      VALUES ($1, $2, $3, $4, $5, $6, $7, 'offen', $8)`,
-    [id, body.title, body.description || null, body.affected_app, body.product, body.problem_type, body.priority, body.start_time]
+    [id, body.title, body.description || null, JSON.stringify(body.affected_systems), JSON.stringify(body.affected_processes), body.is_warning || false, body.priority, body.start_time]
   );
 
   if (body.kvp_ids && body.kvp_ids.length > 0) {
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
   );
   const kvps = kvpResult.rows as KVP[];
 
-  const recipients = await determineRecipients(body.problem_type, body.priority, body.kvp_ids || []);
+  const recipients = await determineRecipients(body.affected_processes[0] || '', body.priority, body.kvp_ids || []);
   const subject = generateEmailSubject(incident, 'Erstmeldung');
   const emailBody = generateEmailBody(incident, kvps, 'Erstmeldung', '');
 

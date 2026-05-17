@@ -183,18 +183,29 @@ export default function IncidentDetailPage() {
       )}
 
       {/* Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div className="card">
-          <div className="text-xs text-slate-500 uppercase mb-1">Betroffene App</div>
-          <div className="text-white font-medium">{incident.affected_app}</div>
+          <div className="text-xs text-slate-500 uppercase mb-2">Betroffene Systeme</div>
+          <div className="flex flex-wrap gap-2">
+            {(Array.isArray(incident.affected_systems) ? incident.affected_systems : []).map(s => (
+              <span key={s} className="text-sm bg-blue-900/30 text-blue-300 border border-blue-700 px-2 py-1 rounded">
+                {s}
+              </span>
+            ))}
+          </div>
+          {incident.is_warning && (
+            <div className="mt-2 text-yellow-400 text-sm">⚠️ Warning – Eingeschränkte Funktionalität</div>
+          )}
         </div>
         <div className="card">
-          <div className="text-xs text-slate-500 uppercase mb-1">Produkt</div>
-          <div className="text-white font-medium">{incident.product}</div>
-        </div>
-        <div className="card">
-          <div className="text-xs text-slate-500 uppercase mb-1">Problemtyp</div>
-          <div className="text-white font-medium">{incident.problem_type}</div>
+          <div className="text-xs text-slate-500 uppercase mb-2">Betroffene Prozesse</div>
+          <div className="flex flex-wrap gap-2">
+            {(Array.isArray(incident.affected_processes) ? incident.affected_processes : []).map(p => (
+              <span key={p} className="text-sm bg-red-900/30 text-red-300 border border-red-700 px-2 py-1 rounded">
+                {p}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 

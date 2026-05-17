@@ -78,7 +78,10 @@ export async function POST(
   // Send email if requested
   if (body.send_email) {
     const kvpIds = kvps.map(k => k.id);
-    const recipients = await determineRecipients(updatedIncident.problem_type, updatedIncident.priority, kvpIds);
+    const problemType = Array.isArray(updatedIncident.affected_processes) && updatedIncident.affected_processes.length > 0
+      ? updatedIncident.affected_processes[0]
+      : '';
+    const recipients = await determineRecipients(problemType, updatedIncident.priority, kvpIds);
     const subject = generateEmailSubject(updatedIncident, body.update_type);
     const emailBody = generateEmailBody(updatedIncident, kvps, body.update_type, body.message);
 

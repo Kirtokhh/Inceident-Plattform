@@ -25,7 +25,7 @@ async function initializeSchema() {
         short_name TEXT NOT NULL,
         contact_email TEXT NOT NULL,
         contact_name TEXT,
-        region TEXT,
+        access_token TEXT UNIQUE,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
 
@@ -41,13 +41,9 @@ async function initializeSchema() {
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         description TEXT,
-        affected_app TEXT NOT NULL,
-        product TEXT NOT NULL CHECK(product IN (
-          'Deutschlandticket', 'EinzelTicket', 'Zeitkarte', 'Abo', 'Sonstiges'
-        )),
-        problem_type TEXT NOT NULL CHECK(problem_type IN (
-          'Payment', 'Ticketanzeige', 'Login', 'Tarif', 'Backend', 'Reporting'
-        )),
+        affected_systems JSONB NOT NULL DEFAULT '[]',
+        affected_processes JSONB NOT NULL DEFAULT '[]',
+        is_warning BOOLEAN DEFAULT FALSE,
         priority TEXT NOT NULL CHECK(priority IN ('kritisch', 'hoch', 'mittel', 'niedrig')),
         status TEXT NOT NULL DEFAULT 'offen' CHECK(status IN (
           'offen', 'in Prüfung', 'Workaround', 'gelöst'
@@ -108,9 +104,9 @@ async function initializeSchema() {
     const kvpCount = await client.query('SELECT COUNT(*)::int as count FROM kvp');
     if (kvpCount.rows[0].count === 0) {
       await client.query(`
-        INSERT INTO kvp (name, short_name, contact_email, contact_name, region) VALUES
-          ('KVP1', 'KVP1', 'kirill.tokmann@hansecom.com', 'Vorname Nachname', NULL),
-          ('KVP2', 'KVP2', 'kirill.tokmann@hansecom.com', 'Vorname Nachname', NULL)
+        INSERT INTO kvp (name, short_name, contact_email, contact_name, access_token) VALUES
+          ('KVP1', 'KVP1', 'kirill.tokmann@hansecom.com', 'Vorname Nachname', 'kvp1-token-2024'),
+          ('KVP2', 'KVP2', 'kirill.tokmann@hansecom.com', 'Vorname Nachname', 'kvp2-token-2024')
       `);
 
       await client.query(`
@@ -124,7 +120,7 @@ async function initializeSchema() {
         INSERT INTO recipient_rule (problem_type, priority, stakeholder_id, always_notify) VALUES
           (NULL, NULL, 1, TRUE),
           (NULL, NULL, 2, TRUE),
-          ('Backend', NULL, 3, FALSE)
+          (NULL, 'kritisch', 3, FALSE)
       `);
     }
   } finally {

@@ -18,6 +18,16 @@ function priorityLabel(p: string): string {
   return colors[p] || p;
 }
 
+function formatSystems(incident: Incident): string {
+  const systems = Array.isArray(incident.affected_systems) ? incident.affected_systems : [];
+  return systems.map(s => `  • ${s}`).join('\n') || '  • Keine Angabe';
+}
+
+function formatProcesses(incident: Incident): string {
+  const processes = Array.isArray(incident.affected_processes) ? incident.affected_processes : [];
+  return processes.map(p => `  • ${p}`).join('\n') || '  • Keine Angabe';
+}
+
 export function generateEmailSubject(incident: Incident, emailType: EmailType): string {
   const prefix: Record<EmailType, string> = {
     'Erstmeldung': '⚠️ [STÖRUNG]',
@@ -26,7 +36,8 @@ export function generateEmailSubject(incident: Incident, emailType: EmailType): 
     'Entwarnung': '✅ [ENTWARNUNG]',
     'Abschluss/RCA': '📋 [ABSCHLUSS/RCA]',
   };
-  return `${prefix[emailType]} ${incident.id} – ${incident.title} (${incident.affected_app})`;
+  const systems = Array.isArray(incident.affected_systems) ? incident.affected_systems : [];
+  return `${prefix[emailType]} ${incident.id} – ${incident.title} (${systems[0] || 'System'})`;
 }
 
 export function generateEmailBody(
@@ -50,12 +61,16 @@ STÖRUNGSMELDUNG
 
 Incident-ID:    ${incident.id}
 Titel:          ${incident.title}
-Betroffene App: ${incident.affected_app}
-Produkt:        ${incident.product}
-Problemtyp:     ${incident.problem_type}
 Priorität:      ${priorityLabel(incident.priority)}
 Status:         ${incident.status}
 Beginn:         ${formatDateTime(incident.start_time)}
+${incident.is_warning ? '⚠️  WARNUNG – Eingeschränkte Funktionalität' : ''}
+
+Betroffene Systeme:
+${formatSystems(incident)}
+
+Betroffene Prozesse:
+${formatProcesses(incident)}
 
 Betroffene KVP/Verkehrsunternehmen:
 ${kvpList}
@@ -84,12 +99,14 @@ ZWISCHENUPDATE
 
 Incident-ID:    ${incident.id}
 Titel:          ${incident.title}
-Betroffene App: ${incident.affected_app}
 Priorität:      ${priorityLabel(incident.priority)}
 Status:         ${incident.status}
 
 Update:
 ${updateMessage}
+
+Betroffene Systeme:
+${formatSystems(incident)}
 
 Betroffene KVP/Verkehrsunternehmen:
 ${kvpList}
@@ -113,7 +130,6 @@ WORKAROUND VERFÜGBAR
 
 Incident-ID:    ${incident.id}
 Titel:          ${incident.title}
-Betroffene App: ${incident.affected_app}
 Priorität:      ${priorityLabel(incident.priority)}
 Status:         Workaround
 
@@ -121,6 +137,9 @@ Workaround-Beschreibung:
 ${updateMessage}
 
 ${incident.workaround_description ? `Detaillierte Anleitung:\n${incident.workaround_description}` : ''}
+
+Betroffene Systeme:
+${formatSystems(incident)}
 
 Betroffene KVP/Verkehrsunternehmen:
 ${kvpList}
@@ -144,7 +163,6 @@ ENTWARNUNG
 
 Incident-ID:    ${incident.id}
 Titel:          ${incident.title}
-Betroffene App: ${incident.affected_app}
 Status:         Gelöst
 Beginn:         ${formatDateTime(incident.start_time)}
 ${incident.resolved_time ? `Gelöst um:      ${formatDateTime(incident.resolved_time)}` : ''}
@@ -174,11 +192,14 @@ ABSCHLUSSBERICHT / ROOT-CAUSE-ANALYSE
 
 Incident-ID:    ${incident.id}
 Titel:          ${incident.title}
-Betroffene App: ${incident.affected_app}
-Produkt:        ${incident.product}
-Problemtyp:     ${incident.problem_type}
 Beginn:         ${formatDateTime(incident.start_time)}
 ${incident.resolved_time ? `Gelöst um:      ${formatDateTime(incident.resolved_time)}` : ''}
+
+Betroffene Systeme:
+${formatSystems(incident)}
+
+Betroffene Prozesse:
+${formatProcesses(incident)}
 
 Root Cause:
 ${incident.root_cause || 'Wird noch untersucht.'}
